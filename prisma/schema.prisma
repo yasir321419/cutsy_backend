@@ -416,6 +416,8 @@ model BookingTracking {
   bookingId  String
   lat        Float
   lng        Float
+  barberLat  Float     // Added for tracking barber's latitude
+  barberLng  Float     // Added for tracking barber's longitude
   timestamp  DateTime  @default(now())
 
   booking    Booking   @relation(fields: [bookingId], references: [id])

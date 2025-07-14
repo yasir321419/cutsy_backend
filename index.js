@@ -84,10 +84,10 @@ io.on("connection", (socket) => {
   });
 
   // Handle barber location updates
-  socket.on('updateLocation', (locationData) => {
-    console.log('Barber location:', locationData);
-    socket.broadcast.emit('locationUpdate', locationData);
-  });
+  // socket.on('updateLocation', (locationData) => {
+  //   console.log('Barber location:', locationData);
+  //   socket.broadcast.emit('locationUpdate', locationData);
+  // });
 
 
   socket.on("disconnect", () => {
