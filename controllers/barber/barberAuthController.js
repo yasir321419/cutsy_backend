@@ -1,0 +1,533 @@
+const prisma = require("../../config/prismaConfig");
+const { otpConstants, userConstants, deviceConstants } = require("../../constant/constant");
+const { ConflictError, NotFoundError, ValidationError, BadRequestError } = require("../../handler/CustomError");
+const { handlerOk } = require("../../handler/resHandler");
+const emailTemplates = require("../../utils/emailTemplete");
+const { generateOtp } = require("../../utils/generateOtp");
+const { genToken } = require("../../utils/generateToken");
+const { hashPassword, comparePassword } = require("../../utils/passwordHashed");
+const sendEmails = require("../../utils/sendEmail");
+const generateOtpExpiry = require("../../utils/verifyOtp");
+
+const singUp = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    const existbarber = await prisma.barber.findUnique({
+      where: {
+        email: email,
+      }
+    });
+
+    if (existbarber) {
+      throw new ConflictError("barber already exist")
+    }
+
+    const otp = generateOtp();
+    const expiretime = generateOtpExpiry(2);
+
+    await prisma.otp.create({
+      data: {
+        otp,
+        otpReason: otpConstants.REGISTER,
+        email,
+        otpUsed: false,
+        userId: null,
+        expiresAt: expiretime
+      }
+    })
+
+    const emailData = {
+      subject: "Cutsy - Account Verification",
+      html: emailTemplates.register(otp),
+    };
+
+    await sendEmails(email, emailData.subject, emailData.html);
+
+
+    handlerOk(res, 201, otp, "otp send successfully")
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+const verifyOtp = async (req, res, next) => {
+  try {
+    const { email, name, otp, password, phoneNumber, gender, experienceId, hairTypeId, hairLengthId, latitude, longitude, address, addressLine1, addressLine2, city, state, country, postalcode, deviceToken, deviceType } = req.body;
+
+
+    const findotp = await prisma.otp.findFirst({
+      where: {
+        otp
+      }
+    });
+
+    if (!findotp) {
+      throw new NotFoundError("otp not found");
+    }
+
+    const now = new Date();
+
+    if (findotp.expiresAt < now) {
+      throw new ConflictError("otp expired")
+    }
+
+    if (findotp.otpReason === "REGISTER") {
+
+      const hashedpassword = await hashPassword(password, 10);
+
+
+      if (findotp.otpUsed) {
+        throw new ConflictError("otp already used");
+      }
+
+
+      const findhairtype = await prisma.hairType.findUnique({
+        where: {
+          id: hairTypeId,
+        }
+      });
+
+      if (!findhairtype) {
+        throw new NotFoundError("hair type not found")
+      }
+
+      const findhairlength = await prisma.hairLength.findUnique({
+        where: {
+          id: hairLengthId
+        }
+      });
+
+      if (!findhairlength) {
+        throw new NotFoundError("hair length not found")
+      }
+
+
+      const findexperience = await prisma.barberExperience.findUnique({
+        where: {
+          id: experienceId
+        }
+      });
+
+      if (!findexperience) {
+        throw new NotFoundError("experience not found")
+      }
+
+      const savebarber = await prisma.barber.create({
+        data: {
+          name,
+          email,
+          phoneNumber,
+          password: hashedpassword,
+          gender,
+          selectedHairTypeId: findhairtype.id,
+          selectedHairLengthId: findhairlength.id,
+          barberExperienceId: findexperience.id,
+          latitude,
+          longitude,
+          addressName: address,
+          addressLine1,
+          addressLine2,
+          city,
+          states: state,
+          country,
+          postalCode: postalcode,
+          userType: userConstants.BARBER,
+          deviceType,
+          deviceToken
+
+
+        },
+        include: {
+          selectedHairType: true,
+          selectedHairLength: true,
+          barberExperience: true,
+          BarberService: true
+        }
+      });
+
+      if (!savebarber) {
+        throw new ValidationError("barber not save")
+      }
+
+      await prisma.otp.update({
+        where: {
+          id: findotp.id
+        },
+        data: {
+          otpUsed: true,
+          barberId: savebarber.id
+        }
+      })
+
+      const token = genToken({
+        id: savebarber.id,
+        userType: userConstants.BARBER,
+      })
+
+      handlerOk(res, 200, { ...savebarber, barberToken: token }, "barber register successfully")
+
+
+    }
+    if (findotp.otpReason === "FORGETPASSWORD") {
+      const findbarber = await prisma.barber.findUnique({
+        where: {
+          email
+        }
+      });
+
+      if (!findbarber) {
+        throw new NotFoundError("barber not found")
+      }
+
+      if (findotp.otpUsed) {
+        throw new ConflictError("otp already used")
+      }
+
+      await prisma.otp.update({
+        where: {
+          id: findotp.id
+        },
+        data: {
+          otpUsed: true,
+          barberId: findbarber.id
+        }
+      });
+
+      const token = genToken({
+        id: findbarber.id,
+        userType: userConstants.BARBER,
+      });
+
+      return handlerOk(res, 201, { barberToken: token }, "Now set your password");
+
+    }
+  } catch (error) {
+    next(error)
+  }
+}
+
+const login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    const finduser = await prisma.barber.findUnique({
+      where: {
+        email
+      },
+      include: {
+        selectedHairType: true,
+        selectedHairLength: true,
+        barberExperience: true,
+        BarberAvailableHour: true,
+        BarberService: {
+          include: {
+            serviceCategory: true
+          }
+        }
+      }
+    });
+
+    if (!finduser) {
+      throw new NotFoundError("barber not found")
+    }
+
+    const comparePass = await comparePassword(password, finduser.password);
+
+    if (!comparePass) {
+      throw new BadRequestError("invalid password");
+    }
+
+    const token = genToken({
+      id: finduser.id,
+      userType: userConstants.BARBER,
+    });
+
+    const response = {
+      barberToken: token,
+    }
+
+
+    handlerOk(res, 200, { ...finduser, ...response }, "barber login successfully")
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+const forgetPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    const findbarber = await prisma.barber.findUnique({
+      where: {
+        email
+      }
+    });
+
+    if (!findbarber) {
+      throw new NotFoundError("barber not found")
+    }
+
+    const otp = generateOtp();
+    const expiretime = generateOtpExpiry(2);
+
+    const createotp = await prisma.otp.create({
+      data: {
+        email,
+        barberId: findbarber.id,
+        otp,
+        otpReason: otpConstants.FORGETPASSWORD,
+        otpUsed: false,
+        expiresAt: expiretime
+      }
+    })
+
+    const emailData = {
+      subject: "Cutsy - Reset Your Password",
+      html: emailTemplates.forgetPassword(otp),
+    };
+
+    await sendEmails(email, emailData.subject, emailData.html);
+
+
+    handlerOk(res, 200, otp, "otp send successfully");
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { password } = req.body;
+
+    const { id } = req.user;
+
+
+    const hashPass = await hashPassword(password);
+
+    const updatePass = await prisma.barber.update({
+      where: {
+        id: id
+      },
+      data: {
+        password: hashPass
+      }
+    });
+
+    if (!updatePass) {
+      throw new ValidationError("password not update");
+    }
+
+    handlerOk(res, 200, updatePass, "password updated successfully");
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+const editProfile = async (req, res, next) => {
+  try {
+    const { id } = req.user;
+    const { name, address, gender, experience, bio } = req.body;
+    const file = req.file;
+
+    console.log(file, 'file');
+
+    const updateObj = {};
+
+    if (file) {
+      const filePath = file.filename; // use filename instead of path
+      const basePath = `http://${req.get("host")}/public/uploads/`;
+      const image = `${basePath}${filePath}`;
+      updateObj.image = image;
+    }
+
+    if (name) {
+      updateObj.name = name;
+    }
+
+    if (address) {
+      updateObj.addressName = address;
+    }
+
+    if (experience) {
+      updateObj.experience = experience;
+    }
+
+    if (gender) {
+      updateObj.gender = gender;
+    }
+
+    if (bio) {
+      updateObj.bio = bio;
+    }
+
+    const updateProfile = await prisma.barber.update({
+      where: {
+        id: id
+      },
+      data: updateObj
+    });
+
+    if (!updateProfile) {
+      throw new ValidationError("barber profile not update")
+    }
+
+    handlerOk(res, 200, updateProfile, "barber profile updated successfully");
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentpassword, newpassword } = req.body;
+    const { id, password } = req.user;
+
+    const comparePass = await comparePassword(currentpassword, password);
+
+    if (!comparePass) {
+      throw new BadRequestError("current password not correct")
+    }
+
+    const hashpass = await hashPassword(newpassword);
+
+    const changePass = await prisma.barber.update({
+      where: {
+        id: id
+      },
+      data: {
+        password: hashpass
+      }
+    });
+
+    if (!changePass) {
+      throw new ValidationError("password not change")
+    }
+
+    handlerOk(res, 200, changePass, "password changed successfully")
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+const logOut = async (req, res, next) => {
+  try {
+    const { id } = req.user;
+
+    const logOutBarber = await prisma.barber.update({
+      where: {
+        id: id
+      },
+      data: {
+        deviceToken: null
+      }
+    });
+
+    if (!logOutBarber) {
+      throw new ValidationError("barber logout failed")
+    }
+
+    handlerOk(res, 200, null, "barber logout successfully")
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+const deleteAccount = async (req, res, next) => {
+  try {
+    const { id } = req.user;
+
+    const deletebarber = await prisma.barber.delete({
+      where: {
+        id: id
+      }
+    });
+
+    if (!deletebarber) {
+      throw new ValidationError("barber profile not delete")
+    }
+
+    handlerOk(res, 200, null, "barber profile deleted successfully")
+  } catch (error) {
+    next(error)
+  }
+}
+
+const socailLogin = async (req, res, next) => {
+  try {
+
+    const { accessToken, socialType, deviceType, deviceToken } = req.body;
+
+
+    // Verify token with Firebase Admin
+    const decodedToken = await admin.auth().verifyIdToken(accessToken);
+
+    const { uid, email, name, picture } = decodedToken;
+
+    if (!email) {
+      throw new BadRequestError("Email is required");
+    }
+
+    // Check if barber exists
+    let barber = await prisma.barber.findUnique({
+      where: { email },
+    });
+
+    // If user doesn't exist, register them
+    if (!barber) {
+      barber = await prisma.barber.create({
+        data: {
+          email,
+          name: name?.split(" ")[1] || null,
+          accessToken: uid,
+          socialType: socialType,
+          image: picture || null,
+          deviceType,
+          deviceToken,
+        },
+      });
+    } else {
+      // Optional: Update device info on login
+      await prisma.barber.update({
+        where: { email },
+        data: {
+          deviceType,
+          deviceToken,
+        },
+      });
+    }
+
+    // Generate your own app token (e.g., JWT)
+
+    const token = genToken({
+      id: barber.id,
+      userType: userConstants.BARBER
+    });
+
+    handlerOk(res, 200, { barber, token }, "Login successful");
+
+
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports = {
+  singUp,
+  verifyOtp,
+  login,
+  forgetPassword,
+  resetPassword,
+  editProfile,
+  changePassword,
+  logOut,
+  deleteAccount,
+  socailLogin
+}

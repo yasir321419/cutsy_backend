@@ -1,0 +1,435 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+
+
+enum otpReason {
+  REGISTER
+  FORGETPASSWORD
+}
+
+enum userType {
+  ADMIN
+  USER
+  BARBER
+}
+
+enum socialType {
+  GOOGLE
+  APPLE
+}
+
+enum deviceType {
+  ANDROID
+  IOS
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum ServiceGenderCategory {
+  MALE
+  FEMALE
+  UNISEX
+}
+
+enum WeekDay {
+  SUN
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+}
+
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  ARRIVED
+  COMPLETED
+  CANCELLED
+  PAID
+}
+
+enum PaymentMethod {
+  CARD
+  WALLET
+}
+
+
+model Admin {
+
+  id             String      @id @default(uuid())
+  email          String   @unique
+  password       String?
+  name           String?
+  deviceToken    String?
+  userType       userType?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime?           @updatedAt
+
+
+  hairType hairType[]
+
+  hairLength hairLength[]
+
+  barberExperience barberExperience[]
+
+  barberServiceCategory barberServiceCategory[]
+
+  TermsCondition TermsCondition[]
+
+  PrivacyPolicy PrivacyPolicy[]
+
+  ChatRoom ChatRoom[]
+
+  Message Message[] @relation("AdminSender")
+}
+
+model Otp {
+  id         String       @id @default(uuid())
+  otp        String    @unique
+  user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  barber     Barber?     @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  userId     String?
+  barberId   String?
+  otpReason  otpReason
+  email      String? 
+  expiresAt  DateTime
+  otpUsed    Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Barber Barber[]
+}
+
+model hairType{
+  id          String      @id @default(uuid())
+  name         String    
+  createdById  String
+  createdBy    Admin     @relation(fields: [createdById], references: [id])
+  selectedByUsers User[]    @relation("UserHairType")
+
+  Barber Barber[] @relation("UserHairType")
+}
+
+model hairLength{
+  id          String      @id @default(uuid())
+  name         String    
+  createdById  String
+  createdBy    Admin     @relation(fields: [createdById], references: [id])
+  selectedByUsers User[]    @relation("UserHairLength")
+
+
+  Barber Barber[] @relation("UserHairLength")
+}
+
+model barberExperience{
+  id          String      @id @default(uuid())
+  title         String
+  description   String    
+  createdById  String
+  createdBy    Admin     @relation(fields: [createdById], references: [id])
+  selectedByBarber Barber[]
+}
+
+model barberServiceCategory{
+  id          String      @id @default(uuid())
+  service         String
+  genderCategory ServiceGenderCategory
+  createdById  String
+  createdBy    Admin     @relation(fields: [createdById], references: [id])
+
+  selectedByBarber        Barber[] 
+
+  BarberService BarberService[]
+
+
+  BookingService BookingService[]
+}
+
+
+
+model User{
+  id             String      @id @default(uuid())
+  email          String   @unique
+  firstName       String
+  lastName       String
+  phoneNumber    String
+  password       String
+  gender         Gender 
+  selectedHairTypeId   String?
+  selectedHairType     hairType?    @relation("UserHairType", fields: [selectedHairTypeId], references: [id])
+  selectedHairLengthId String?
+  selectedHairLength   hairLength?  @relation("UserHairLength", fields: [selectedHairLengthId], references: [id])
+  latitude             Float
+  longitude            Float
+  addressName       String  
+  addressLine1     String
+  addressLine2     String?
+  city                String
+  states              String
+  country             String
+  postalCode          String
+  userType             userType?
+  deviceType             deviceType?
+  deviceToken            String?
+  image            String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime?           @updatedAt
+  Otp Otp[]
+
+  ChatRoom ChatRoom[]
+
+  Message Message[] @relation("UserSender")
+
+  UserAddress UserAddress[]
+
+  BarberFavourite BarberFavourite[]
+
+  Review Review[]
+
+
+  Booking Booking[]
+}
+
+model Barber{
+  id             String      @id @default(uuid())
+  email          String   @unique
+  name       String
+  phoneNumber    String
+  password       String
+  gender         Gender 
+  selectedHairTypeId   String?
+  selectedHairType     hairType?    @relation("UserHairType", fields: [selectedHairTypeId], references: [id])
+  selectedHairLengthId String?
+  selectedHairLength   hairLength?  @relation("UserHairLength", fields: [selectedHairLengthId], references: [id])
+  barberExperienceId String?
+  barberExperience   barberExperience?  @relation(fields: [barberExperienceId], references: [id])
+  barberServiceCategoryId String? 
+  barberServiceCategory   barberServiceCategory? @relation(fields: [barberServiceCategoryId], references: [id])
+  latitude             Float
+  longitude            Float
+  addressName       String  
+  addressLine1     String
+  addressLine2     String?
+  city                String
+  states              String
+  country             String
+  postalCode          String
+  bio                 String?
+  experience          String?  
+  userType             userType?
+  deviceType             deviceType?
+  deviceToken            String?
+  image            String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime?           @updatedAt
+  Otp Otp[]
+
+
+  BarberService BarberService[]
+
+  BarberAvailableHour BarberAvailableHour[]
+
+  BarberDocument BarberDocument[]
+
+  ChatRoom ChatRoom[]
+
+  Message Message[] @relation("BarberSender")
+
+  BarberFavourite BarberFavourite[]
+
+  Review Review[]
+
+
+  Booking Booking[]
+}
+
+model BarberService{
+  id             String      @id @default(uuid())
+  serviceCategoryId String
+  price String
+  serviceCategory   barberServiceCategory @relation(fields: [serviceCategoryId], references: [id])
+
+  createdById  String
+  createdBy    Barber     @relation(fields: [createdById], references: [id])
+}
+
+
+model BarberAvailableHour{
+  id             String      @id @default(uuid())
+  day       WeekDay
+  startTime String   // e.g., "09:00"
+  endTime   String   // e.g., "18:00"
+  createdById  String
+  createdBy    Barber     @relation(fields: [createdById], references: [id])
+}
+
+model BarberDocument{
+  id             String      @id @default(uuid())
+  document       String
+
+  createdById  String
+  createdBy    Barber     @relation(fields: [createdById], references: [id])
+
+}
+
+model TermsCondition{
+  id             String      @id @default(uuid())
+  text           String
+  createdById  String
+  createdBy    Admin     @relation(fields: [createdById], references: [id])
+}
+
+model PrivacyPolicy{
+  id             String      @id @default(uuid())
+  text           String
+  createdById  String
+  createdBy    Admin     @relation(fields: [createdById], references: [id])
+
+}
+
+model ChatRoom {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Participants: Any two of the three types can be in a chat
+  userId    String? 
+  user      User?     @relation(fields: [userId], references: [id])
+
+  barberId  String?
+  barber    Barber?   @relation(fields: [barberId], references: [id])
+
+  adminId   String?
+  admin     Admin?    @relation(fields: [adminId], references: [id])
+
+  messages  Message[]
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  content        String
+  createdAt      DateTime @default(now())
+  isRead         Boolean  @default(false)
+  chatRoomId     String
+  chatRoom       ChatRoom @relation(fields: [chatRoomId], references: [id])
+
+  senderUserId   String?
+  senderUser     User?    @relation("UserSender", fields: [senderUserId], references: [id])
+
+  senderAdminId  String?
+  senderAdmin    Admin?   @relation("AdminSender", fields: [senderAdminId], references: [id])
+
+  senderBarberId String?
+  senderBarber   Barber?  @relation("BarberSender", fields: [senderBarberId], references: [id])
+}
+
+model UserAddress{
+    id             String   @id @default(uuid())
+    latitude             Float
+  longitude            Float
+  addressName       String  
+  addressLine1     String
+  addressLine2     String?
+  city                String
+  states              String
+  country             String
+  postalCode          String
+    createdById  String
+  createdBy    User     @relation(fields: [createdById], references: [id])
+
+}
+
+model BarberFavourite{
+  id             String   @id @default(uuid())
+  userId        String
+  barberId      String
+  user      User     @relation(fields: [userId], references: [id])
+  barber    Barber   @relation(fields: [barberId], references: [id])
+  createdAt DateTime @default(now())
+  @@unique([userId, barberId]) // Prevent duplicates
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int      // or Float
+  comment   String?
+  userId    String
+  barberId  String
+  createdAt DateTime @default(now())
+
+  barber    Barber   @relation(fields: [barberId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Booking {
+  id             String         @id @default(uuid())
+  userId         String
+  barberId       String
+  scheduledTime  DateTime
+  amount         Float
+  locationName   String
+  locationLat    Float
+  locationLng    Float
+  status         BookingStatus  @default(PENDING)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime?      @updatedAt
+
+  user           User           @relation(fields: [userId], references: [id])
+  barber         Barber         @relation(fields: [barberId], references: [id])
+  services       BookingService[]
+  payment        Payment?
+  tracking       BookingTracking[]
+}
+
+model BookingService {
+  id                String                 @id @default(uuid())
+  bookingId         String
+  serviceCategoryId String
+  price             Float
+
+  booking           Booking                @relation(fields: [bookingId], references: [id])
+  serviceCategory   barberServiceCategory  @relation(fields: [serviceCategoryId], references: [id])
+}
+
+model BookingTracking {
+  id         String    @id @default(uuid())
+  bookingId  String
+  lat        Float
+  lng        Float
+  timestamp  DateTime  @default(now())
+
+  booking    Booking   @relation(fields: [bookingId], references: [id])
+}
+
+model Payment {
+  id                String       @id @default(uuid())
+  bookingId         String       @unique
+  amount            Float
+  discount          Float
+  platformFee       Float
+  tip               Float
+  paymentMethod     PaymentMethod
+  createdAt         DateTime     @default(now())
+
+  booking           Booking      @relation(fields: [bookingId], references: [id])
+}
