@@ -68,6 +68,15 @@ enum BookingStatus {
   PAID
 }
 
+enum PaymentStatus {
+  PENDING
+  ACCEPTED
+  ARRIVED
+  COMPLETED
+  CANCELLED
+  PAID
+}
+
 enum PaymentMethod {
   CARD
   WALLET
@@ -382,23 +391,27 @@ model Review {
 }
 
 model Booking {
-  id             String         @id @default(uuid())
-  userId         String
-  barberId       String
-  scheduledTime  DateTime
-  amount         Float
-  locationName   String
-  locationLat    Float
-  locationLng    Float
-  status         BookingStatus  @default(PENDING)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime?      @updatedAt
+  id                String         @id @default(uuid())
+  userId            String
+  barberId          String
+  scheduledTime     DateTime
+  amount            Float
+  locationName      String
+  locationLat       Float
+  locationLng       Float
+  status            BookingStatus  @default(PENDING)
+  cancellationReason String?       // New field to store cancellation reason
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime?      @updatedAt
 
-  user           User           @relation(fields: [userId], references: [id])
-  barber         Barber         @relation(fields: [barberId], references: [id])
-  services       BookingService[]
-  payment        Payment?
-  tracking       BookingTracking[]
+  user              User           @relation(fields: [userId], references: [id])
+  barber            Barber         @relation(fields: [barberId], references: [id])
+  services          BookingService[]
+  payment           Payment?
+  tracking          BookingTracking[]
+
+  // Include the field for totalAmount, which is typically calculated based on various factors (amount, discount, etc.)
+  totalAmount       Float?         // Optional: This can be stored for invoice calculation
 }
 
 model BookingService {
@@ -424,14 +437,20 @@ model BookingTracking {
 }
 
 model Payment {
-  id                String       @id @default(uuid())
-  bookingId         String       @unique
-  amount            Float
-  discount          Float
-  platformFee       Float
-  tip               Float
-  paymentMethod     PaymentMethod
-  createdAt         DateTime     @default(now())
+  id                String         @id @default(uuid())
+  bookingId         String         @unique
+  amount            Float          // The amount of the booking
+  discount          Float          // Discount applied
+  platformFee       Float          // Platform fee for the transaction
+  tip               Float          // Tip added by the user
+  paymentMethod     PaymentMethod // Payment method used
+  cancellationReason String?       // Reason for cancellation if the payment is cancelled
+  status            PaymentStatus @default(PENDING) // Payment status (PENDING, COMPLETED, CANCELLED)
+  createdAt         DateTime       @default(now())
+  paymentIntentId   String         // Payment provider's ID (for example, Stripe paymentIntentId)
+  totalAmount       Float          // The total amount after considering discount, tip, and platform fees
 
-  booking           Booking      @relation(fields: [bookingId], references: [id])
+  booking           Booking        @relation(fields: [bookingId], references: [id])
 }
+
+

@@ -3,22 +3,37 @@ const { bookingConstants } = require("../../constant/constant");
 const { ValidationError, NotFoundError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
 
-const createBooking = async (req, res, next) => {
-
+const createBookingAndPayment = async (req, res, next) => {
   try {
-    const { barberId, scheduledTime, amount, locationName, locationLat, locationLng, services } = req.body;
+    const { barberId, scheduledTime, amount, locationName, locationLat, locationLng, services, paymentMethod } = req.body;
     const { id } = req.user;
 
+    // Find the barber
     const findbarber = await prisma.barber.findUnique({
       where: {
         id: barberId,
-      }
+      },
     });
 
     if (!findbarber) {
-      throw new NotFoundError("barber not found")
+      throw new NotFoundError("Barber not found");
     }
 
+    // Create payment intent for the booking (using Stripe or other payment provider)
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // Convert to cents
+      currency: 'usd',
+      payment_method: paymentMethod,
+      confirm: true,
+    });
+
+    // Check if payment was successful
+    if (paymentIntent.status !== 'succeeded') {
+      throw new ValidationError("Payment failed. Please try again.");
+    }
+
+
+    // Create the booking
     const booking = await prisma.booking.create({
       data: {
         userId: id,
@@ -38,40 +53,34 @@ const createBooking = async (req, res, next) => {
     });
 
     if (!booking) {
-      throw new ValidationError("booking failed")
+      throw new ValidationError("Booking creation failed");
     }
 
-    handlerOk(res, 200, booking, "booking created successfully")
 
-  } catch (error) {
-    next(error)
-  }
-
-}
-
-const showBooking = async (req, res, next) => {
-
-  try {
-    const { id } = req.user;
-
-    const bookings = await prisma.booking.findMany({
-      where: { userId: id },
-      include: {
-        services: true,
-        barber: true,
+    // Create a payment record in the database
+    const payment = await prisma.payment.create({
+      data: {
+        bookingId: booking.id,
+        amount,
+        discount: req.body.discount || 0,
+        platformFee: req.body.platformFee || 0,
+        tip: req.body.tip || 0,
+        paymentMethod,
+        paymentIntentId: paymentIntent.id,  // Store the Stripe payment intent ID
       },
     });
 
-    if (!bookings.length === 0) {
-      throw new NotFoundError("no bookings found")
+    if (!payment) {
+      throw new ValidationError("Payment creation failed");
     }
 
-    handlerOk(res, 200, bookings, "booking found successfully");
+    // Send response with booking and payment details
+    handlerOk(res, 200, { booking, payment, paymentIntentId: paymentIntent.id }, "Booking and payment created successfully");
 
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 const showAppoinmentDetail = async (req, res, next) => {
   try {
@@ -95,31 +104,42 @@ const showAppoinmentDetail = async (req, res, next) => {
   }
 }
 
-const cancelAppoinment = async (req, res, next) => {
+const cancelAppointment = async (req, res, next) => {
   try {
     const { bookingId } = req.params;
-    const cancelled = await prisma.booking.update({
+    const { reason } = req.body;
+    // Cancel the booking status
+    const cancelledBooking = await prisma.booking.update({
       where: { id: bookingId },
-      data: { status: bookingConstants.CANCELLED }
+      data: { status: bookingConstants.CANCELLED, cancellationReason: reason },
     });
 
-    if (!cancelled) {
-      throw new ValidationError("Booking not cancel")
+    if (!cancelledBooking) {
+      throw new ValidationError("Booking not found or already cancelled");
     }
 
-    handlerOk(res, 200, cancelled, "Booking cancelled successfully")
+    // Cancel the payment associated with this booking
+    const cancelledPayment = await prisma.payment.update({
+      where: { bookingId: bookingId },
+      data: { status: 'CANCELLED', cancellationReason: reason }, // assuming you have a `status` field in Payment model
+    });
 
+    if (!cancelledPayment) {
+      throw new ValidationError("Payment cancellation failed");
+    }
+
+    handlerOk(res, 200, { cancelledBooking, cancelledPayment }, "Booking and payment cancelled successfully");
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 const trackBarber = async (req, res, next) => {
   try {
     const { barberId } = req.params;
-    const { latitude, longitude } = req.user;
-    const { bookingId } = req.body;
+    const { latitude, longitude, barberLatitude, barberLongitude, status, bookingId } = req.body; // Data from frontend
 
+    // Fetch the barber details
     const barber = await prisma.barber.findUnique({
       where: {
         id: barberId,
@@ -130,7 +150,7 @@ const trackBarber = async (req, res, next) => {
       throw new NotFoundError("Barber not found");
     }
 
-    // Check if a tracking record already exists for this booking
+    // First check if tracking already exists
     let existingTracking = await prisma.bookingTracking.findFirst({
       where: {
         bookingId: bookingId,
@@ -139,13 +159,14 @@ const trackBarber = async (req, res, next) => {
 
     // If no tracking record exists, create a new one
     if (!existingTracking) {
-      await prisma.bookingTracking.create({
+      const createdTracking = await prisma.bookingTracking.create({
         data: {
           bookingId: bookingId,
-          lat: latitude,
-          lng: longitude,
-          barberLat: barber.latitude,
-          barberLng: barber.longitude,
+          lat: latitude, // User's latitude
+          lng: longitude, // User's longitude
+          barberLat: barberLatitude, // Barber's latitude (sent from frontend)
+          barberLng: barberLongitude, // Barber's longitude (sent from frontend)
+          status: status, // Status from frontend (e.g., "On the way")
           timestamp: new Date(),
         },
       });
@@ -154,32 +175,54 @@ const trackBarber = async (req, res, next) => {
         status: "Tracking started",
         userLat: latitude,
         userLng: longitude,
-        barberLat: barber.latitude,
-        barberLng: barber.longitude,
+        barberLat: barberLatitude,
+        barberLng: barberLongitude,
+        status: status,
       }, "Tracking created successfully");
     }
 
-    // If a tracking record exists, update the tracking information
+    // If tracking record exists, update it with new information
     const updatedTracking = await prisma.bookingTracking.update({
       where: {
         id: existingTracking.id,
       },
       data: {
-        lat: latitude,
-        lng: longitude,
-        barberLat: barber.latitude,
-        barberLng: barber.longitude,
+        lat: latitude, // Updated user latitude
+        lng: longitude, // Updated user longitude
+        barberLat: barberLatitude, // Updated barber latitude
+        barberLng: barberLongitude, // Updated barber longitude
+        status: status, // Updated status
         timestamp: new Date(),
       },
     });
 
-    // Return the updated locations
+    // Optionally update the booking status with the status from frontend
+    const updatedBooking = await prisma.booking.update({
+      where: {
+        id: bookingId,
+      },
+      data: {
+        status: status, // Update booking status with status from frontend
+      },
+    });
+
+    // Update payment status if needed
+    const updatedPayment = await prisma.payment.update({
+      where: {
+        bookingId: bookingId,
+      },
+      data: {
+        status: status, // Update payment status based on booking status
+      },
+    });
+
     handlerOk(res, 200, {
-      status: "Tracking updated",
+      status: "Tracking updated successfully",
       userLat: latitude,
       userLng: longitude,
-      barberLat: barber.latitude,
-      barberLng: barber.longitude,
+      barberLat: barberLatitude,
+      barberLng: barberLongitude,
+      status: status,
     }, "Tracking updated successfully");
 
   } catch (error) {
@@ -187,52 +230,81 @@ const trackBarber = async (req, res, next) => {
   }
 };
 
-
-const makePayment = async (req, res, next) => {
-
-
+const showInvoice = async (req, res, next) => {
   try {
+    const { bookingId } = req.params;
 
-    const { bookingId, amount, discount, platformFee, tip, paymentMethod } = req.body;
-
-    const findbooking = await prisma.booking.findUnique({
-      where: {
-        id: bookingId,
+    // Fetch the booking and payment details
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        user: true,
+        barber: true,
+        services: true,
+        payment: true,  // Include payment details
       }
     });
 
-    if (!findbooking) {
-      throw new NotFoundError("booking not found")
+    if (!booking) {
+      throw new NotFoundError("Booking not found");
     }
 
-    // Create payment intent (e.g., using Stripe or other payment providers)
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Amount in cents
-      currency: 'usd',
-      payment_method: paymentMethod,
-      confirm: true,
-    });
+    const { payment } = booking;
 
-    const payment = await prisma.payment.create({
-      data: {
-        bookingId: findbooking.id,
-        amount,
-        discount,
-        platformFee,
-        tip,
-        paymentMethod,
+    if (!payment) {
+      throw new NotFoundError("Payment details not found");
+    }
+
+    // Return the invoice details
+    handlerOk(res, 200, {
+      bookingId: booking.id,
+      barber: booking.barber.name,
+      services: booking.services,
+      totalAmount: payment.totalAmount,
+      discount: payment.discount,
+      platformFee: payment.platformFee,
+      amountPaid: payment.amount,
+      paymentMethod: payment.paymentMethod,
+      status: payment.status,
+      paymentIntentId: payment.paymentIntentId,
+      createdAt: payment.createdAt,
+    }, "Invoice details found successfully");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const showPaymentReceipt = async (req, res, next) => {
+  try {
+    const { bookingId } = req.params;
+
+    // Fetch the payment receipt details
+    const payment = await prisma.payment.findUnique({
+      where: { bookingId: bookingId },
+      include: {
+        booking: true, // Include booking details to show the barber, amount, etc.
       },
     });
 
-    if (payment) {
-      throw new ValidationError("error in payment")
+    if (!payment) {
+      throw new NotFoundError("Payment receipt not found");
     }
 
-    handlerOk(res, 200, payment, "payment successfully")
+    // Return the payment receipt details
+    handlerOk(res, 200, {
+      bookingId: payment.bookingId,
+      barber: payment.booking.barber.name,
+      amountPaid: payment.amount,
+      totalAmount: payment.totalAmount,
+      paymentMethod: payment.paymentMethod,
+      paymentIntentId: payment.paymentIntentId,
+      status: payment.status,
+      createdAt: payment.createdAt,
+    }, "Payment receipt found successfully");
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 const submitReview = async (req, res, next) => {
   try {
@@ -263,11 +335,11 @@ const submitReview = async (req, res, next) => {
 
 
 module.exports = {
-  createBooking,
-  showBooking,
+  createBookingAndPayment,
   showAppoinmentDetail,
-  cancelAppoinment,
+  cancelAppointment,
   trackBarber,
-  makePayment,
-  submitReview
+  submitReview,
+  showInvoice,
+  showPaymentReceipt,
 }

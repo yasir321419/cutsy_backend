@@ -9,17 +9,10 @@ const { verifyUserToken } = require("../../middleware/auth");
 
 
 userBookingRouter.post(
-  "/createBooking",
+  "/createBookingAndPayment",
   limiter,
   verifyUserToken,
-  userBookingController.createBooking
-);
-
-userBookingRouter.get(
-  "/showBooking",
-  limiter,
-  verifyUserToken,
-  userBookingController.showBooking
+  userBookingController.createBookingAndPayment
 );
 
 userBookingRouter.get(
@@ -30,10 +23,10 @@ userBookingRouter.get(
 );
 
 userBookingRouter.post(
-  "/cancelAppoinment/:bookingId",
+  "/cancelAppointment/:bookingId",
   limiter,
   verifyUserToken,
-  userBookingController.cancelAppoinment
+  userBookingController.cancelAppointment
 );
 
 userBookingRouter.post(
@@ -43,11 +36,18 @@ userBookingRouter.post(
   userBookingController.trackBarber
 );
 
-userBookingRouter.post(
-  "/makePayment/:bookingId",
+userBookingRouter.get(
+  "/showInvoice/:bookingId",
   limiter,
   verifyUserToken,
-  userBookingController.makePayment
+  userBookingController.showInvoice
+);
+
+userBookingRouter.get(
+  "/showPaymentReceipt/:bookingId",
+  limiter,
+  verifyUserToken,
+  userBookingController.showPaymentReceipt
 );
 
 module.exports = userBookingRouter
