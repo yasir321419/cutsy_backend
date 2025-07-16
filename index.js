@@ -14,10 +14,57 @@ const http = require("http");
 const server = http.createServer(app);
 const io = socketIo(server);
 const ChatRoomService = require("./service/chatService");
-const jwt = require("jsonwebtoken"); // ← You need this
+const jwt = require("jsonwebtoken");
+const stripe = require("stripe");// ← You need this
+const stripeInstance = stripe(process.env.STRIPE_KEY);
+const { handlePaymentIntentSucceeded, handlePaymentIntentPaymentFailed } = require("./utils/paymentStatus")
 
 app.use(cors());
 app.use('/public', express.static('public'));
+
+
+
+app.post(
+  "/webhook",
+  bodyParser.raw({ type: "application/json" }),
+  async (req, res) => {
+    const sig = req.headers["stripe-signature"];
+    let event;
+
+    try {
+      // Verify the event
+      event = stripeInstance.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.END_POINT_SECRET
+      );
+      console.log(event, "event");
+
+      // Handle the event
+      switch (event.type) {
+        case "payment_intent.succeeded":
+          const paymentIntentSucceeded = event.data.object;
+          await handlePaymentIntentSucceeded(paymentIntentSucceeded);
+          break;
+
+        case "payment_intent.payment_failed":
+          const paymentIntentPaymentFailed = event.data.object;
+          await handlePaymentIntentPaymentFailed(paymentIntentPaymentFailed);
+          break;
+
+        default:
+          console.log(`Unhandled event type ${event.type}`);
+      }
+
+      // Respond to Stripe that the event was received successfully
+      res.json({ received: true });
+    } catch (err) {
+      console.log(`Webhook Error: ${err.message}`);
+      res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+  }
+);
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.set('io', io);

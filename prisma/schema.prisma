@@ -201,6 +201,7 @@ model User{
   deviceType             deviceType?
   deviceToken            String?
   image            String?
+  customerId      String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime?           @updatedAt
   Otp Otp[]
@@ -249,6 +250,7 @@ model Barber{
   deviceType             deviceType?
   deviceToken            String?
   image            String?
+  barberAccountId  String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime?           @updatedAt
   Otp Otp[]

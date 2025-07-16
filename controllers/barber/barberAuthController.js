@@ -7,6 +7,7 @@ const { generateOtp } = require("../../utils/generateOtp");
 const { genToken } = require("../../utils/generateToken");
 const { hashPassword, comparePassword } = require("../../utils/passwordHashed");
 const sendEmails = require("../../utils/sendEmail");
+const { createConnectedAccount, verifyConnectedAccount } = require("../../utils/stripeApis");
 const generateOtpExpiry = require("../../utils/verifyOtp");
 
 const singUp = async (req, res, next) => {
@@ -114,6 +115,17 @@ const verifyOtp = async (req, res, next) => {
         throw new NotFoundError("experience not found")
       }
 
+      const account = await createConnectedAccount(email);
+      if (!account) {
+        throw new ValidationError("connected account is null")
+      }
+
+      const verifyAccountUrl = await verifyConnectedAccount(account);
+
+      if (!verifyAccountUrl) {
+        throw new ValidationError("Account not verified")
+      }
+
       const savebarber = await prisma.barber.create({
         data: {
           name,
@@ -134,6 +146,7 @@ const verifyOtp = async (req, res, next) => {
           country,
           postalCode: postalcode,
           userType: userConstants.BARBER,
+          handlerAccountId: account,
           deviceType,
           deviceToken
 
@@ -166,7 +179,7 @@ const verifyOtp = async (req, res, next) => {
         userType: userConstants.BARBER,
       })
 
-      handlerOk(res, 200, { ...savebarber, barberToken: token }, "barber register successfully")
+      handlerOk(res, 200, { ...savebarber, barberToken: token, verifyAccountUrl: verifyAccountUrl }, "barber register successfully")
 
 
     }

@@ -37,14 +37,14 @@ userBookingRouter.post(
 );
 
 userBookingRouter.get(
-  "/showInvoice/:bookingId",
+  "/showInvoiceDetail/:bookingId",
   limiter,
   verifyUserToken,
-  userBookingController.showInvoice
+  userBookingController.showInvoiceDetail
 );
 
 userBookingRouter.get(
-  "/showPaymentReceipt/:bookingId",
+  "/showPaymentReceipt/:paymentIntentId",
   limiter,
   verifyUserToken,
   userBookingController.showPaymentReceipt

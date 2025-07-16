@@ -9,6 +9,7 @@ const { handlerOk } = require("../../handler/resHandler");
 const { comparePassword, hashPassword } = require("../../utils/passwordHashed");
 const { genToken } = require("../../utils/generateToken");
 const admin = require('firebase-admin');
+const { createCustomer } = require("../../utils/stripeApis");
 
 const signUp = async (req, res, next) => {
   try {
@@ -54,7 +55,6 @@ const signUp = async (req, res, next) => {
     next(error)
   }
 }
-
 
 const verifyOtp = async (req, res, next) => {
   try {
@@ -104,6 +104,12 @@ const verifyOtp = async (req, res, next) => {
         throw new NotFoundError("hair length not found")
       }
 
+      const customer = await createCustomer(email);
+
+      if (!customer) {
+        throw new ValidationError("customer id is null")
+      }
+
       const saveuser = await prisma.user.create({
         data: {
           email,
@@ -123,6 +129,7 @@ const verifyOtp = async (req, res, next) => {
           selectedHairLengthId: findhairlength.id,
           selectedHairTypeId: findhairtype.id,
           states: state,
+          customerId: customer.id,
           deviceToken,
           deviceType,
           userType: userConstants.USER
@@ -511,6 +518,7 @@ const socialLogin = async (req, res, next) => {
     next(error);
   }
 }
+
 
 module.exports = {
   signUp,
