@@ -29,7 +29,7 @@ userBookingRouter.post(
   userBookingController.cancelAppointment
 );
 
-userBookingRouter.post(
+userBookingRouter.get(
   "/trackBarber/:barberId",
   limiter,
   verifyUserToken,
