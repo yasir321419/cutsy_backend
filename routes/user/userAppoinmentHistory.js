@@ -1,5 +1,4 @@
 const limiter = require("../../middleware/limiter");
-const validateRequest = require("../../middleware/validateRequest");
 
 
 const userAppoinmentHistoryRouter = require("express").Router();
@@ -9,24 +8,24 @@ const { verifyUserToken } = require("../../middleware/auth");
 
 
 userAppoinmentHistoryRouter.get(
-  "/showUpComingAppoinment",
+  "/showUserUpComingAppoinment",
   limiter,
   verifyUserToken,
-  userAppoinmentHistoryController.showUpComingAppoinment
+  userAppoinmentHistoryController.showUserUpComingAppoinment
 );
 
 userAppoinmentHistoryRouter.get(
-  "/showOngoingAppoinment",
+  "/showUserOngoingAppoinment",
   limiter,
   verifyUserToken,
-  userAppoinmentHistoryController.showOngoingAppoinment
+  userAppoinmentHistoryController.showUserOngoingAppoinment
 );
 
 userAppoinmentHistoryRouter.get(
-  "/showPastAppoinment",
+  "/showUserPastAppoinment",
   limiter,
   verifyUserToken,
-  userAppoinmentHistoryController.showPastAppoinment
+  userAppoinmentHistoryController.showUserPastAppoinment
 );
 
 
