@@ -1,6 +1,6 @@
-const { ValidationError, NotFoundError } = require("../../handler/CustomError");
+const { ValidationError, NotFoundError, ConflictError, BadRequestError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
-const { createExternalBankAccount, getAllBankDetail, verifyConnectedAccount } = require("../../utils/stripeApis");
+const { createExternalBankAccount, getAllBankDetail, verifyConnectedAccount, getBalance, createPayout, getBalanceTransactions } = require("../../utils/stripeApis");
 
 const addbarberBusinessAccount = async (req, res, next) => {
   try {
@@ -80,10 +80,105 @@ const verificationBarberBusinessAccount = async (req, res, next) => {
   }
 }
 
+const checkBarberBalance = async (req, res, next) => {
+  try {
+
+    const { barberAccountId } = req.user;
+
+    const balance = await getBalance({ accountId: barberAccountId });
+
+    if (!balance) {
+      throw NotFoundError("barber balance not found")
+    }
+    // Convert cents to dollars and format amount
+    function formatAmount(amountInCents) {
+      const amountInDollars = amountInCents / 100;
+      return `${amountInDollars.toFixed(2)}`;
+    }
+
+    const availableBalance = formatAmount(balance.available[0].amount);
+    const pendingBalance = formatAmount(balance.pending[0].amount);
+
+    handlerOk(res, 200, { availableBalance: availableBalance, pendingBalance: pendingBalance }, "Balance found successfully")
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+const withDrawAmountBarber = async (req, res, next) => {
+  try {
+    const { amount, destination } = req.body;
+    const { barberAccountId } = req.user;
+
+    // Convert amount to cents if it's in dollars
+    const amountInCents = amount * 100;
+
+    if (amountInCents <= 0) {
+      throw new BadRequestError("invalid amount");
+    }
+
+    // Retrieve balance
+
+    const balance = await getBalance({ accountId: barberAccountId });
+
+    if (!balance) {
+      throw NotFoundError("Barber balance not found")
+    }
+
+    // Calculate total available balance
+
+    const availableBalance = balance.instant_available[0].amount;
+
+    if (amountInCents > availableBalance) {
+      throw new BadRequestError("Insufficient balance");
+    }
+
+    const payout = await createPayout({
+      amount: amountInCents,
+      destination, // Use the dynamic external account ID
+      accountId: barberAccountId, // Use the handler's account ID
+    });
+
+    if (!payout) {
+      throw new ValidationError("Payout request failed")
+    }
+
+    handlerOk(res, 200, payout, "payout successfully")
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+const showAllBarberTransactions = async (req, res, next) => {
+  try {
+    const { barberAccountId } = req.user;
+
+    // Retrieve the balance transactions for the barber's connected account
+
+    const transactions = await getBalanceTransactions(barberAccountId);
+
+    // Filter the transactions to only include payouts (withdrawals)
+
+    const transferTransactions = transactions.filter((transaction) => {
+      return transaction.type === "payout";
+    });
+
+    handlerOk(res, 200, transferTransactions, "Bank transactions retrieved successfully")
+
+
+  } catch (error) {
+    next(error)
+  }
+}
 
 
 module.exports = {
   addbarberBusinessAccount,
   showbarberBusinessAccount,
-  verificationBarberBusinessAccount
+  verificationBarberBusinessAccount,
+  checkBarberBalance,
+  withDrawAmountBarber,
+  showAllBarberTransactions
 }

@@ -157,6 +157,14 @@ const getBalance = async ({ accountId }) => {
   return balance;
 };
 
+const getAdminBalance = async () => {
+  const balance = await stripeInstance.balance.retrieve({
+    // stripeAccount: accountId,
+  });
+  return balance;
+};
+
+
 //get debit and credit transaction
 
 const getBalanceTransaction = async ({ accountId }) => {
@@ -202,14 +210,14 @@ const createPaymentIntent = async ({
 
 const transferAmountInAccount = async ({
   amount,
-  metadata,
+  // metadata,
   connectedAccountId,
 }) => {
   const transfer = await stripeInstance.transfers.create({
     amount,
     currency: "usd",
     destination: connectedAccountId,
-    metadata,
+    // metadata,
   });
 
   return transfer;
@@ -284,6 +292,25 @@ const attachPaymentMethodToCustomer = async (paymentMethodId, customerId) => {
   }
 };
 
+// Function to get the balance transactions for a connected account (barber's account)
+const getBalanceTransactions = async (barberAccountId) => {
+  try {
+    // Define options object for balance transactions retrieval
+    const options = {
+      limit: 10, // Limit the number of transactions to retrieve
+      stripeAccount: barberAccountId, // ID of the connected account
+    };
+
+    // Retrieve the balance transactions for the connected account
+    const transactions = await stripeInstance.balanceTransactions.list(options);
+
+    return transactions.data; // Return the array of balance transactions
+  } catch (error) {
+    console.error("Error retrieving balance transactions:", error);
+    throw new Error("Unable to retrieve balance transactions");
+  }
+};
+
 
 module.exports = {
   createCustomer,
@@ -301,5 +328,7 @@ module.exports = {
   refundAmount,
   hasPaymentMethod,
   attachPaymentMethodToCustomer,
-  getPaymentMethods
+  getPaymentMethods,
+  getBalanceTransactions,
+  getAdminBalance
 }

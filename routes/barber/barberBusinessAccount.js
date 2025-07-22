@@ -5,7 +5,7 @@ const validateRequest = require("../../middleware/validateRequest");
 const barberBusinessAccountRouter = require("express").Router();
 const barberBusinessAccountController = require("../../controllers/barber/barberAccountController");
 const { verifyBarberToken } = require("../../middleware/auth");
-const { addBarberbusinessAccountSchema, verifyBarberbusinessAccountSchema } = require("../../schema/barber/account");
+const { addBarberbusinessAccountSchema, verifyBarberbusinessAccountSchema, withDrawAmountBarberSchema } = require("../../schema/barber/account");
 
 
 
@@ -31,6 +31,28 @@ barberBusinessAccountRouter.get(
   verifyBarberToken,
   validateRequest(verifyBarberbusinessAccountSchema),
   barberBusinessAccountController.verificationBarberBusinessAccount
+);
+
+barberBusinessAccountRouter.get(
+  "/checkBarberBalance",
+  limiter,
+  verifyBarberToken,
+  barberBusinessAccountController.checkBarberBalance
+);
+
+barberBusinessAccountRouter.post(
+  "/withDrawAmountBarber",
+  limiter,
+  verifyBarberToken,
+  validateRequest(withDrawAmountBarberSchema),
+  barberBusinessAccountController.withDrawAmountBarber
+);
+
+barberBusinessAccountRouter.get(
+  "/showAllBarberTransactions",
+  limiter,
+  verifyBarberToken,
+  barberBusinessAccountController.showAllBarberTransactions
 );
 
 module.exports = barberBusinessAccountRouter;
