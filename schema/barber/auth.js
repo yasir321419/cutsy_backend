@@ -133,6 +133,39 @@ const barberSocailLoginSchema = Joi.object({
   }),
 });
 
+const barberCreateProfileSchema = Joi.object({
+  query: Joi.object({}),
+  params: Joi.object({}),
+  body: Joi.object({
+    name: Joi.string().required(),
+    phoneNumber: Joi.string().required(),
+    gender: Joi.string().valid('MALE', 'FEMALE', 'OTHER').required(),
+    experienceId: Joi.string().required(),
+    hairTypeId: Joi.string().required(),
+    hairLengthId: Joi.string().required(),
+    latitude: Joi.number().min(-90).max(90).required(),
+    longitude: Joi.number().min(-180).max(180).required(),
+    address: Joi.string().required(),
+    addressLine1: Joi.string().required(),
+    addressLine2: Joi.string().required(),
+    city: Joi.string().required(),
+    state: Joi.string().required(),
+    country: Joi.string().required(),
+    postalcode: Joi.string().required(),
+    deviceToken: Joi.string().required(),
+    deviceType: Joi.string().valid('ANDROID', 'IOS').required(),
+    userType: Joi.string().valid('ADMIN', 'USER', 'BARBER').required(),
+  }),
+});
+
+const barberResendOtpSchema = Joi.object({
+  query: Joi.object({}),
+  params: Joi.object({}),
+  body: Joi.object({
+    email: Joi.string().email().required(),
+  }),
+});
+
 
 module.exports = {
   barberRegisterSchema,
@@ -142,5 +175,7 @@ module.exports = {
   barberResetPasswordSchema,
   barberEditProfileSchema,
   barberChangePasswordSchema,
-  barberSocailLoginSchema
+  barberSocailLoginSchema,
+  barberCreateProfileSchema,
+  barberResendOtpSchema
 }

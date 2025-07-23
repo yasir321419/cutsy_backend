@@ -6,7 +6,7 @@ const barberAuthRouter = require("express").Router();
 const barberAuthController = require("../../controllers/barber/barberAuthController");
 const { verifyBarberToken } = require("../../middleware/auth");
 const handleMultiPartData = require("../../middleware/handleMultiPartData");
-const { barberRegisterSchema, barberverifyOtpSchema, barberLoginSchema, barberForgetPasswordSchema, barberResetPasswordSchema, barberEditProfileSchema, barberChangePasswordSchema, barberSocailLoginSchema } = require("../../schema/barber/auth");
+const { barberRegisterSchema, barberverifyOtpSchema, barberLoginSchema, barberForgetPasswordSchema, barberResetPasswordSchema, barberEditProfileSchema, barberChangePasswordSchema, barberSocailLoginSchema, barberCreateProfileSchema, barberResendOtpSchema } = require("../../schema/barber/auth");
 
 
 
@@ -86,7 +86,19 @@ barberAuthRouter.post(
   barberAuthController.socailLogin
 );
 
+barberAuthRouter.post(
+  "/barberCreateProfile",
+  limiter,
+  validateRequest(barberCreateProfileSchema),
+  barberAuthController.barberCreateProfile
+);
 
+barberAuthRouter.post(
+  "/resendOtp",
+  limiter,
+  validateRequest(barberResendOtpSchema),
+  barberAuthController.resendOtp
+);
 
 
 

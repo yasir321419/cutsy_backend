@@ -4,7 +4,7 @@ const validateRequest = require("../../middleware/validateRequest");
 
 const userAuthRouter = require("express").Router();
 const userAuthController = require("../../controllers/user/userAuthController");
-const { userRegisterSchema, userverifyOtpSchema, userLoginSchema, userForgetPasswordSchema, userResetPasswordSchema, userEditProfileSchema, userChangePasswordSchema, userSocailLoginSchema } = require("../../schema/user/auth");
+const { userRegisterSchema, userverifyOtpSchema, userLoginSchema, userForgetPasswordSchema, userResetPasswordSchema, userEditProfileSchema, userChangePasswordSchema, userSocailLoginSchema, userCreateProfileSchema, userResendOtpSchema } = require("../../schema/user/auth");
 const { verifyUserToken } = require("../../middleware/auth");
 const handleMultiPartData = require("../../middleware/handleMultiPartData");
 
@@ -85,6 +85,22 @@ userAuthRouter.post(
   validateRequest(userSocailLoginSchema),
   userAuthController.socialLogin
 );
+
+userAuthRouter.post(
+  "/userCreateProfile",
+  limiter,
+  verifyUserToken,
+  validateRequest(userCreateProfileSchema),
+  userAuthController.userCreateProfile
+);
+
+userAuthRouter.post(
+  "/resendOtp",
+  limiter,
+  validateRequest(userResendOtpSchema),
+  userAuthController.resendOtp
+);
+
 
 
 

@@ -31,11 +31,12 @@ const signUp = async (req, res, next) => {
 
     await prisma.otp.create({
       data: {
+        email,
         otp,
         otpReason: otpConstants.REGISTER,
         email,
         otpUsed: false,
-        userId: null,
+        // userId: null,
         expiresAt: expiretime
       }
     })
@@ -58,7 +59,9 @@ const signUp = async (req, res, next) => {
 
 const verifyOtp = async (req, res, next) => {
   try {
-    const { email, otp, firstName, lastName, password, phoneNumber, gender, hairTypeId, hairLengthId, latitude, longitude, address, addressLine1, addressLine2, city, state, country, postalcode, deviceToken, deviceType } = req.body;
+    const { email, otp, password,
+      // latitude, longitude, address, addressLine1, addressLine2, city, state, country, postalcode
+    } = req.body;
 
     const findotp = await prisma.otp.findFirst({
       where: {
@@ -84,84 +87,84 @@ const verifyOtp = async (req, res, next) => {
         throw new ConflictError("OTP already used");
       }
 
-      const findhairtype = await prisma.hairType.findUnique({
-        where: {
-          id: hairTypeId,
-        }
-      });
+      // const findhairtype = await prisma.hairType.findUnique({
+      //   where: {
+      //     id: hairTypeId,
+      //   }
+      // });
 
-      if (!findhairtype) {
-        throw new NotFoundError("hair type not found")
-      }
+      // if (!findhairtype) {
+      //   throw new NotFoundError("hair type not found")
+      // }
 
-      const findhairlength = await prisma.hairLength.findUnique({
-        where: {
-          id: hairLengthId
-        }
-      });
+      // const findhairlength = await prisma.hairLength.findUnique({
+      //   where: {
+      //     id: hairLengthId
+      //   }
+      // });
 
-      if (!findhairlength) {
-        throw new NotFoundError("hair length not found")
-      }
+      // if (!findhairlength) {
+      //   throw new NotFoundError("hair length not found")
+      // }
 
-      const customer = await createCustomer(email);
+      // const customer = await createCustomer(email);
 
-      if (!customer) {
-        throw new ValidationError("customer id is null")
-      }
+      // if (!customer) {
+      //   throw new ValidationError("customer id is null")
+      // }
 
       const saveuser = await prisma.user.create({
         data: {
           email,
-          addressLine1,
-          addressLine2,
-          addressName: address,
-          city,
-          country,
-          firstName,
-          lastName,
-          gender,
-          latitude,
-          longitude,
+          // addressLine1,
+          // addressLine2,
+          // addressName: address,
+          // city,
+          // country,
+          // firstName,
+          // lastName,
+          // gender,
+          // latitude,
+          // longitude,
           password: hashedpassword,
-          phoneNumber,
-          postalCode: postalcode,
-          selectedHairLengthId: findhairlength.id,
-          selectedHairTypeId: findhairtype.id,
-          states: state,
-          customerId: customer.id,
-          deviceToken,
-          deviceType,
+          // phoneNumber,
+          // postalCode: postalcode,
+          // selectedHairLengthId: findhairlength.id,
+          // selectedHairTypeId: findhairtype.id,
+          // states: state,
+          // customerId: customer.id,
+          // deviceToken,
+          // deviceType,
           userType: userConstants.USER
         },
-        include: {
-          selectedHairType: true,
-          selectedHairLength: true
-        }
+        // include: {
+        //   selectedHairType: true,
+        //   selectedHairLength: true
+        // }
       });
 
       if (!saveuser) {
         throw new ValidationError("user not save");
       }
 
-      const saveaddress = await prisma.userAddress.create({
-        data: {
-          latitude,
-          longitude,
-          addressName: address,
-          addressLine1,
-          addressLine2,
-          city,
-          states: state,
-          country,
-          postalCode: postalcode,
-          createdById: saveuser.id
-        }
-      });
+      // const saveaddress = await prisma.userAddress.create({
+      //   data: {
+      //     latitude,
+      //     longitude,
+      //     addressName: address,
+      //     addressLine1,
+      //     addressLine2,
+      //     city,
+      //     states: state,
+      //     country,
+      //     postalCode: postalcode,
+      //     createdById: saveuser.id
+      //   }
+      // });
 
-      if (!saveaddress) {
-        throw new ValidationError("user address not save");
-      }
+      // if (!saveaddress) {
+      //   throw new ValidationError("user address not save");
+      // }
 
       await prisma.otp.update({
         where: {
@@ -169,7 +172,6 @@ const verifyOtp = async (req, res, next) => {
         },
         data: {
           otpUsed: true,
-          userId: saveuser.id
         }
       })
 
@@ -201,7 +203,7 @@ const verifyOtp = async (req, res, next) => {
         },
         data: {
           otpUsed: true,
-          userId: finduser.id
+          // userId: finduser.id
         }
       });
 
@@ -218,6 +220,47 @@ const verifyOtp = async (req, res, next) => {
     next(error)
   }
 }
+
+const resendOtp = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    // Find existing OTP record by email (not user)
+    const existingOtp = await prisma.otp.findFirst({
+      where: {
+        email,
+        otpUsed: false,
+      },
+    });
+
+    if (!existingOtp) {
+      throw new NotFoundError("OTP Record Not Found");
+    }
+
+    const otp = generateOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+    await prisma.otp.update({
+      where: { id: existingOtp.id },
+      data: {
+        otp,
+        otpUsed: false,
+        expiresAt,
+      },
+    });
+
+    const emailData = {
+      subject: "Cutsy - Account Verification",
+      html: emailTemplates.resendOTP(otp),
+    };
+
+    await sendEmails(email, emailData.subject, emailData.html);
+
+    handlerOk(res, 201, otp, "OTP sent successfully. Now verify your OTP.");
+  } catch (error) {
+    next(error);
+  }
+};
 
 const login = async (req, res, next) => {
   try {
@@ -276,7 +319,7 @@ const forgetPassword = async (req, res, next) => {
     const createotp = await prisma.otp.create({
       data: {
         email,
-        userId: finduser.id,
+        // userId: finduser.id,
         otp,
         otpReason: otpConstants.FORGETPASSWORD,
         otpUsed: false,
@@ -412,7 +455,6 @@ const changePassword = async (req, res, next) => {
   }
 }
 
-
 const logOut = async (req, res, next) => {
   try {
     const { id } = req.user;
@@ -436,7 +478,6 @@ const logOut = async (req, res, next) => {
     next(error)
   }
 }
-
 
 const deleteAccount = async (req, res, next) => {
   try {
@@ -519,6 +560,113 @@ const socialLogin = async (req, res, next) => {
   }
 }
 
+const userCreateProfile = async (req, res, next) => {
+  try {
+    const { firstName, lastName, phoneNumber, gender, hairTypeId, hairLengthId, latitude, longitude, address, addressLine1, addressLine2, city, state, country, postalcode, deviceToken, deviceType } = req.body;
+    const { email } = req.user;
+
+    const findhairtype = await prisma.hairType.findUnique({
+      where: {
+        id: hairTypeId,
+      }
+    });
+
+    if (!findhairtype) {
+      throw new NotFoundError("hair type not found")
+    }
+
+    const findhairlength = await prisma.hairLength.findUnique({
+      where: {
+        id: hairLengthId
+      }
+    });
+
+    if (!findhairlength) {
+      throw new NotFoundError("hair length not found")
+    }
+
+    const customer = await createCustomer(email);
+
+    if (!customer) {
+      throw new ValidationError("customer id is null")
+    }
+
+    const saveuser = await prisma.user.update({
+
+      where: {
+        email
+      },
+      data: {
+        addressLine1,
+        addressLine2,
+        addressName: address,
+        city,
+        country,
+        firstName,
+        lastName,
+        gender,
+        latitude,
+        longitude,
+        phoneNumber,
+        postalCode: postalcode,
+        isCreatedProfile: true,
+        selectedHairLengthId: findhairlength.id,
+        selectedHairTypeId: findhairtype.id,
+        states: state,
+        customerId: customer.id,
+        deviceToken,
+        deviceType,
+        userType: userConstants.USER
+      },
+      include: {
+        selectedHairType: true,
+        selectedHairLength: true
+      }
+    });
+
+    if (!saveuser) {
+      throw new ValidationError("user not save");
+    }
+
+    const saveaddress = await prisma.userAddress.create({
+      data: {
+        latitude,
+        longitude,
+        addressName: address,
+        addressLine1,
+        addressLine2,
+        city,
+        states: state,
+        country,
+        postalCode: postalcode,
+        createdById: saveuser.id
+      }
+    });
+
+    if (!saveaddress) {
+      throw new ValidationError("user address not save");
+    }
+
+    await prisma.otp.update({
+      where: {
+        email
+      },
+      data: {
+        otpUsed: true,
+      }
+    })
+
+    const token = genToken({
+      id: saveuser.id,
+      userType: userConstants.USER,
+    })
+
+    handlerOk(res, 200, { ...saveuser, userToken: token }, "user profile created successfully")
+  } catch (error) {
+    next(error)
+  }
+}
+
 
 module.exports = {
   signUp,
@@ -531,6 +679,7 @@ module.exports = {
   changePassword,
   deleteAccount,
   socialLogin,
-
+  resendOtp,
+  userCreateProfile
 }
 
