@@ -5,7 +5,7 @@ const stripe = require("stripe")(process.env.STRIPE_KEY);
 
 const createCustomer = async (email) => {
   try {
-    const customer = await stripeInstance.customers.create({
+    const customer = await stripe.customers.create({
       email,
     });
 
@@ -20,7 +20,7 @@ const createCustomer = async (email) => {
 
 const createConnectedAccount = async (email) => {
   try {
-    const account = await stripeInstance.accounts.create({
+    const account = await stripe.accounts.create({
       type: "custom",
       country: "US",
       email,
@@ -43,7 +43,7 @@ const createConnectedAccount = async (email) => {
 
 const verifyConnectedAccount = async (accountId) => {
   try {
-    const accountLink = await stripeInstance.accountLinks.create({
+    const accountLink = await stripe.accountLinks.create({
       account: accountId,
       refresh_url: "https://api.healingpaws.tech/api/v1/reauth",
       return_url: `https://api.healingpaws.tech/api/v1/success/${accountId}`,
@@ -60,7 +60,7 @@ const verifyConnectedAccount = async (accountId) => {
 const acceptTermsCondition = async (accountId) => {
   const date = Math.floor(new Date().getTime() / 1000);
   console.log(date);
-  const account = await stripeInstance.accounts.update(accountId, {
+  const account = await stripe.accounts.update(accountId, {
     tos_acceptance: {
       date,
       ip: "8.8.8.8",
@@ -72,7 +72,7 @@ const acceptTermsCondition = async (accountId) => {
 //get account details
 
 const getAccountDetail = async (accountId) => {
-  const account = await stripeInstance.accounts.retrieve(accountId);
+  const account = await stripe.accounts.retrieve(accountId);
   return account;
 };
 
@@ -106,7 +106,7 @@ const createExternalBankAccount = async ({
       };
     }
 
-    const externalAccount = await stripeInstance.accounts.createExternalAccount(
+    const externalAccount = await stripe.accounts.createExternalAccount(
       account_id,
       external_account
     );
@@ -119,7 +119,7 @@ const createExternalBankAccount = async ({
 //get external bank account
 
 const getAllBankDetail = async (accountId) => {
-  const externalAccounts = await stripeInstance.accounts.listExternalAccounts(
+  const externalAccounts = await stripe.accounts.listExternalAccounts(
     accountId,
     {
       object: "bank_account",
@@ -132,7 +132,7 @@ const getAllBankDetail = async (accountId) => {
 
 const createPayout = async ({ amount, destination, accountId }) => {
   try {
-    const payout = await stripeInstance.payouts.create(
+    const payout = await stripe.payouts.create(
       {
         amount,
         currency: "usd",
@@ -151,14 +151,14 @@ const createPayout = async ({ amount, destination, accountId }) => {
 //get balance
 
 const getBalance = async ({ accountId }) => {
-  const balance = await stripeInstance.balance.retrieve({
+  const balance = await stripe.balance.retrieve({
     stripeAccount: accountId,
   });
   return balance;
 };
 
 const getAdminBalance = async () => {
-  const balance = await stripeInstance.balance.retrieve({
+  const balance = await stripe.balance.retrieve({
     // stripeAccount: accountId,
   });
   return balance;
@@ -168,7 +168,7 @@ const getAdminBalance = async () => {
 //get debit and credit transaction
 
 const getBalanceTransaction = async ({ accountId }) => {
-  const balanceTransactions = await stripeInstance.refunds.list({
+  const balanceTransactions = await stripe.refunds.list({
     stripeAccount: accountId,
   });
   return balanceTransactions;
@@ -183,7 +183,7 @@ const createPaymentIntent = async ({
   returnUrl,
 }) => {
   try {
-    const paymentIntent = await stripeInstance.paymentIntents.create({
+    const paymentIntent = await stripe.paymentIntents.create({
       amount: amount,
       currency: "usd",
       customer: customer,
@@ -194,7 +194,7 @@ const createPaymentIntent = async ({
     });
 
     // Manually confirm the payment intent with the returnUrl
-    const confirmedPaymentIntent = await stripeInstance.paymentIntents.confirm(
+    const confirmedPaymentIntent = await stripe.paymentIntents.confirm(
       paymentIntent.id,
       { return_url: returnUrl }
     );
@@ -213,7 +213,7 @@ const transferAmountInAccount = async ({
   // metadata,
   connectedAccountId,
 }) => {
-  const transfer = await stripeInstance.transfers.create({
+  const transfer = await stripe.transfers.create({
     amount,
     currency: "usd",
     destination: connectedAccountId,
@@ -226,7 +226,7 @@ const transferAmountInAccount = async ({
 //refund amount
 
 const refundAmount = async ({ amount, transferId }) => {
-  const transferReversal = await stripeInstance.transfers.createReversal(
+  const transferReversal = await stripe.transfers.createReversal(
     transferId,
     {
       amount,
@@ -275,12 +275,12 @@ const getPaymentMethods = async (customerId) => {
 const attachPaymentMethodToCustomer = async (paymentMethodId, customerId) => {
   try {
     // Attach the new payment method to the customer
-    const paymentMethod = await stripeInstance.paymentMethods.attach(paymentMethodId, {
+    const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, {
       customer: customerId,
     });
 
     // Update the customer to set this as the default payment method
-    await stripeInstance.customers.update(customerId, {
+    await stripe.customers.update(customerId, {
       invoice_settings: {
         default_payment_method: paymentMethod.id,
       },
@@ -302,7 +302,7 @@ const getBalanceTransactions = async (barberAccountId) => {
     };
 
     // Retrieve the balance transactions for the connected account
-    const transactions = await stripeInstance.balanceTransactions.list(options);
+    const transactions = await stripe.balanceTransactions.list(options);
 
     return transactions.data; // Return the array of balance transactions
   } catch (error) {
