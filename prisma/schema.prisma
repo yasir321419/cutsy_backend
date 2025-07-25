@@ -219,6 +219,8 @@ model User{
 
 
   Booking Booking[]
+
+  Notification Notification[]
 }
 
 model Barber{
@@ -274,6 +276,8 @@ model Barber{
 
 
   Booking Booking[]
+
+  BarberWallet BarberWallet[]
 }
 
 model BarberService{
@@ -457,4 +461,24 @@ model Payment {
   booking           Booking        @relation(fields: [bookingId], references: [id])
 }
 
+model Notification {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  title        String
+  description  String
+  isRead       Boolean   @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model BarberWallet {
+  id            String                 @id @default(uuid())
+  barberId        String                @unique
+  balance       Float              @default(0.0)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  barber          Barber               @relation(fields: [barberId], references: [id])
+}
 
