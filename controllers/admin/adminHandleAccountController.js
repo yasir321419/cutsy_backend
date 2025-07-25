@@ -1,5 +1,5 @@
 const prisma = require("../../config/prismaConfig");
-const { BadRequestError, NotFoundError } = require("../../handler/CustomError");
+const { BadRequestError, NotFoundError, ValidationError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
 const { transferAmountInAccount, getAdminBalance } = require("../../utils/stripeApis");
 
@@ -21,7 +21,14 @@ const showAllPaymentRecieved = async (req, res, next) => {
 const transerAmountToBarberAccount = async (req, res, next) => {
   try {
 
-    const { barberAccountId, amount } = req.body; // Barber's Stripe Account ID
+    const { barberId, amount } = req.body; // Barber's Stripe Account ID\
+
+
+    const findbarber = await prisma.barber.findUnique({ where: { id: barberId } });
+
+    if (!findbarber) {
+      throw new NotFoundError("barber not found")
+    }
 
     // Deduct commission (5% in this case)
     const commission = amount * 0.05;  // 5% commission
@@ -47,7 +54,26 @@ const transerAmountToBarberAccount = async (req, res, next) => {
     }
 
     // Proceed with transferring the funds from Admin to Barber
-    const transfer = await transferAmountInAccount(amountInCents, barberAccountId);
+    const transfer = await transferAmountInAccount(amountInCents, findbarber.barberAccountId);
+
+    const barberwallet = await prisma.barberWallet.upsert({
+      where: {
+        barberId: barberId
+      },
+      update: {
+        balance: {
+          increment: amountAfterCommission,
+        }
+      },
+      create: {
+        barberId: barberId,
+        balance: amountAfterCommission
+      }
+    });
+
+    if (!barberwallet) {
+      throw new ValidationError("barber wallet not update")
+    }
 
     handlerOk(res, 200, transfer, 'Amount transferred successfully to barber');
 

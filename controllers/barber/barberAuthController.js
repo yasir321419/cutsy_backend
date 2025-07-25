@@ -678,6 +678,12 @@ const barberCreateProfile = async (req, res, next) => {
         otpUsed: true,
         // barberId: savebarber.id
       }
+    });
+
+    await prisma.barberWallet.create({
+      data: {
+        barberId: savebarber.id
+      }
     })
 
     const token = genToken({

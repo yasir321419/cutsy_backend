@@ -1,3 +1,4 @@
+const prisma = require("../../config/prismaConfig");
 const { ValidationError, NotFoundError, ConflictError, BadRequestError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
 const { createExternalBankAccount, getAllBankDetail, verifyConnectedAccount, getBalance, createPayout, getBalanceTransactions } = require("../../utils/stripeApis");
@@ -109,7 +110,7 @@ const checkBarberBalance = async (req, res, next) => {
 const withDrawAmountBarber = async (req, res, next) => {
   try {
     const { amount, destination } = req.body;
-    const { barberAccountId } = req.user;
+    const { id, barberAccountId } = req.user;
 
     // Convert amount to cents if it's in dollars
     const amountInCents = amount * 100;
@@ -142,6 +143,21 @@ const withDrawAmountBarber = async (req, res, next) => {
 
     if (!payout) {
       throw new ValidationError("Payout request failed")
+    }
+
+    const deductamountinwallet = await prisma.barberWallet.update({
+      where: {
+        barberId: id
+      },
+      data: {
+        balance: {
+          decrement: amount
+        }
+      }
+    });
+
+    if (!deductamountinwallet) {
+      throw new ValidationError("barber wallet not update")
     }
 
     handlerOk(res, 200, payout, "payout successfully")
