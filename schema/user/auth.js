@@ -21,8 +21,6 @@ const userverifyOtpSchema = Joi.object({
   params: Joi.object({}),
   body: Joi.object({
     email: Joi.string().email().required(),
-    firstName: Joi.string().optional(),
-    lastName: Joi.string().optional(),
     password: Joi.string()
       .min(8)
       .max(30)
@@ -35,23 +33,7 @@ const userverifyOtpSchema = Joi.object({
       .valid(Joi.ref('password'))
       .optional()
       .messages({ 'any.only': 'Confirm password must match password' }),
-    otp: Joi.string().required(),
-    phoneNumber: Joi.string().optional(),
-    gender: Joi.string().valid('MALE', 'FEMALE', 'OTHER').optional(),
-    hairTypeId: Joi.string().optional(),
-    hairLengthId: Joi.string().optional(),
-    latitude: Joi.number().min(-90).max(90).optional(),
-    longitude: Joi.number().min(-180).max(180).optional(),
-    address: Joi.string().optional(),
-    addressLine1: Joi.string().optional(),
-    addressLine2: Joi.string().optional(),
-    city: Joi.string().optional(),
-    state: Joi.string().optional(),
-    country: Joi.string().optional(),
-    postalcode: Joi.string().optional(),
-    deviceToken: Joi.string().optional(),
-    deviceType: Joi.string().valid('ANDROID', 'IOS').optional(),
-    userType: Joi.string().valid('ADMIN', 'USER', 'BARBER').optional(),
+    otp: Joi.string().required()
   }),
 });
 
@@ -163,7 +145,6 @@ const userCreateProfileSchema = Joi.object({
     postalcode: Joi.string().required(),
     deviceToken: Joi.string().required(),
     deviceType: Joi.string().valid('ANDROID', 'IOS').required(),
-    userType: Joi.string().valid('ADMIN', 'USER', 'BARBER').required(),
   }),
 });
 

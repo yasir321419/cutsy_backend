@@ -54,7 +54,6 @@ const showNearestBarbers = async (req, res, next) => {
   }
 }
 
-
 const showBarbersBySearchService = async (req, res, next) => {
   try {
     const { search } = req.query;

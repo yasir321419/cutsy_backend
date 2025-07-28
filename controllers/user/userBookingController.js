@@ -3,6 +3,9 @@ const { bookingConstants } = require("../../constant/constant");
 const { ValidationError, NotFoundError, BadRequestError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
 const { createPaymentIntent } = require("../../utils/stripeApis");
+require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_KEY);
+
 
 const createBookingAndPayment = async (req, res, next) => {
   try {
@@ -14,52 +17,58 @@ const createBookingAndPayment = async (req, res, next) => {
       where: {
         id: barberId,
       },
+      include: {
+        BarberAvailableHour: true
+      }
     });
+
+    console.log(findbarber, 'barber');
+
 
     if (!findbarber) {
       throw new NotFoundError("Barber not found");
     }
 
     // Constants for Stripe fees
-    const stripeFeePercentage = 0.029; // 2.9%
-    const stripeFeeFixed = 0.3; // $0.30
+    // const stripeFeePercentage = 0.029; // 2.9%
+    // const stripeFeeFixed = 0.3; // $0.30
 
-    // Calculate the total amount after adding Stripe fees
-    const totalAmountWithFees =
-      amount + amount * stripeFeePercentage + stripeFeeFixed;
+    // // Calculate the total amount after adding Stripe fees
+    // const totalAmountWithFees =
+    //   amount + amount * stripeFeePercentage + stripeFeeFixed;
 
-    // Calculate the total Stripe fees
-    const stripeFees = amount * stripeFeePercentage + stripeFeeFixed;
+    // // Calculate the total Stripe fees
+    // const stripeFees = amount * stripeFeePercentage + stripeFeeFixed;
 
-    const fixedFees = stripeFees.toFixed(2);
+    // const fixedFees = stripeFees.toFixed(2);
 
-    // Message for the customer
-    const message = `To pay for your purchase with Stripe fees included, please pay $${totalAmountWithFees.toFixed(
-      2
-    )}. This includes a Stripe fee of $${stripeFees.toFixed(2)}.`;
+    // // Message for the customer
+    // const message = `To pay for your purchase with Stripe fees included, please pay $${totalAmountWithFees.toFixed(
+    //   2
+    // )}. This includes a Stripe fee of $${stripeFees.toFixed(2)}.`;
 
-    // Validate amount
-    if (amount < totalAmountWithFees) {
-      return res.status(400).json({
-        success: false,
-        message: message,
-      });
-    }
+    // // Validate amount
+    // if (amount < totalAmountWithFees) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: message,
+    //   });
+    // }
 
-    const amountInCents = Math.round(amount * 100); // Convert dollars to cents
+    // const amountInCents = Math.round(amount * 100); // Convert dollars to cents
 
     // Use the createPaymentIntent function to create the payment intent
-    const paymentIntent = await createPaymentIntent({
-      amount: amountInCents,
-      customer: customerId, // Assuming the user ID is the customer ID
-      paymentMethodId: paymentMethod,
-      returnUrl: `${process.env.FRONTEND_URL}/payment/success`, // Replace with your actual return URL
-    });
+    // const paymentIntent = await createPaymentIntent({
+    //   amount: amountInCents,
+    //   customer: customerId, // Assuming the user ID is the customer ID
+    //   paymentMethodId: paymentMethod,
+    //   returnUrl: `${process.env.FRONTEND_URL}/payment/success`, // Replace with your actual return URL
+    // });
 
-    const paymentIntentRes = {
-      paymentIntentId: paymentIntent.id,
-      clientSecret: paymentIntent.client_secret,
-    };
+    // const paymentIntentRes = {
+    //   paymentIntentId: paymentIntent.id,
+    //   clientSecret: paymentIntent.client_secret,
+    // };
 
     // Create the booking
     const booking = await prisma.booking.create({
@@ -89,11 +98,11 @@ const createBookingAndPayment = async (req, res, next) => {
       data: {
         bookingId: booking.id,
         amount,
-        discount: req.body.discount || 0,
-        platformFee: req.body.platformFee || 0,
-        tip: req.body.tip || 0,
-        paymentMethod,
-        paymentIntentId: paymentIntent.id,  // Store the Stripe payment intent ID
+        // discount: req.body.discount || 0,
+        platformFee: stripeFees,
+        // tip: req.body.tip || 0,
+        // paymentMethod,
+        // paymentIntentId: paymentIntent.id,  // Store the Stripe payment intent ID
         status: 'PENDING', // Set the initial payment status to PENDING
       },
     });
@@ -103,42 +112,43 @@ const createBookingAndPayment = async (req, res, next) => {
     }
 
     // Set a timeout to check for payment expiration
-    const handleExpiration = async () => {
-      try {
-        // Fetch the payment record using the payment ID
-        const paymentRecord = await prisma.payment.findUnique({
-          where: { id: payment.id },
-          include: { booking: true },
-        });
 
-        // If the payment status is still pending, handle expiration
-        if (paymentRecord && paymentRecord.status === 'PENDING') {
-          console.log("Payment expired, handling expiration.");
+    // const handleExpiration = async () => {
+    //   try {
+    //     // Fetch the payment record using the payment ID
+    //     const paymentRecord = await prisma.payment.findUnique({
+    //       where: { id: payment.id },
+    //       include: { booking: true },
+    //     });
 
-          // Expire the payment (mark as cancelled)
-          await prisma.payment.update({
-            where: { id: paymentRecord.id },
-            data: { status: 'CANCELLED' },  // Update payment status to CANCELLED
-          });
+    //     // If the payment status is still pending, handle expiration
+    //     if (paymentRecord && paymentRecord.status === 'PENDING') {
+    //       console.log("Payment expired, handling expiration.");
 
-          // Update the booking status to cancelled
-          await prisma.booking.update({
-            where: { id: paymentRecord.booking.id },
-            data: { status: 'CANCELLED' }, // Mark booking as cancelled
-          });
+    //       // Expire the payment (mark as cancelled)
+    //       await prisma.payment.update({
+    //         where: { id: paymentRecord.id },
+    //         data: { status: 'CANCELLED' },  // Update payment status to CANCELLED
+    //       });
 
-          // Optionally, cancel the Stripe payment intent
-          await stripeInstance.paymentIntents.cancel(paymentIntent.id);
+    //       // Update the booking status to cancelled
+    //       await prisma.booking.update({
+    //         where: { id: paymentRecord.booking.id },
+    //         data: { status: 'CANCELLED' }, // Mark booking as cancelled
+    //       });
 
-          console.log("Payment and associated booking cancelled successfully.");
-        }
-      } catch (error) {
-        console.error("Error handling payment expiration:", error);
-      }
-    };
+    //       // Optionally, cancel the Stripe payment intent
+    //       await stripe.paymentIntents.cancel(paymentIntent.id);
+
+    //       console.log("Payment and associated booking cancelled successfully.");
+    //     }
+    //   } catch (error) {
+    //     console.error("Error handling payment expiration:", error);
+    //   }
+    // };
 
     // Set the expiration time (e.g., 5 minutes)
-    setTimeout(handleExpiration, 5 * 60 * 1000); // 5 minutes timeout
+    // setTimeout(handleExpiration, 5 * 60 * 1000); // 5 minutes timeout
 
     // Send response with booking and payment details
     handlerOk(res, 200, { booking, payment, paymentIntentRes }, "Booking and payment created successfully");

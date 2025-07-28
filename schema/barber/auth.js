@@ -154,7 +154,6 @@ const barberCreateProfileSchema = Joi.object({
     postalcode: Joi.string().required(),
     deviceToken: Joi.string().required(),
     deviceType: Joi.string().valid('ANDROID', 'IOS').required(),
-    userType: Joi.string().valid('ADMIN', 'USER', 'BARBER').required(),
   }),
 });
 

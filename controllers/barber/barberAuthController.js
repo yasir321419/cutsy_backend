@@ -57,10 +57,8 @@ const singUp = async (req, res, next) => {
 const verifyOtp = async (req, res, next) => {
   try {
     const { email,
-      // name,
       otp,
       password,
-      // phoneNumber, gender, experienceId, hairTypeId, hairLengthId, latitude, longitude, address, addressLine1, addressLine2, city, state, country, postalcode, deviceToken, deviceType
     } = req.body;
 
 
@@ -90,80 +88,13 @@ const verifyOtp = async (req, res, next) => {
       }
 
 
-      // const findhairtype = await prisma.hairType.findUnique({
-      //   where: {
-      //     id: hairTypeId,
-      //   }
-      // });
-
-      // if (!findhairtype) {
-      //   throw new NotFoundError("hair type not found")
-      // }
-
-      // const findhairlength = await prisma.hairLength.findUnique({
-      //   where: {
-      //     id: hairLengthId
-      //   }
-      // });
-
-      // if (!findhairlength) {
-      //   throw new NotFoundError("hair length not found")
-      // }
-
-
-      // const findexperience = await prisma.barberExperience.findUnique({
-      //   where: {
-      //     id: experienceId
-      //   }
-      // });
-
-      // if (!findexperience) {
-      //   throw new NotFoundError("experience not found")
-      // }
-
-      // const account = await createConnectedAccount(email);
-      // if (!account) {
-      //   throw new ValidationError("connected account is null")
-      // }
-
-      // const verifyAccountUrl = await verifyConnectedAccount(account);
-
-      // if (!verifyAccountUrl) {
-      //   throw new ValidationError("Account not verified")
-      // }
-
       const savebarber = await prisma.barber.create({
         data: {
-          // name,
           email,
-          // phoneNumber,
           password: hashedpassword,
-          // gender,
-          // selectedHairTypeId: findhairtype.id,
-          // selectedHairLengthId: findhairlength.id,
-          // barberExperienceId: findexperience.id,
-          // latitude,
-          // longitude,
-          // addressName: address,
-          // addressLine1,
-          // addressLine2,
-          // city,
-          // states: state,
-          // country,
-          // postalCode: postalcode,
-          // userType: userConstants.BARBER,
-          // handlerAccountId: account,
-          // deviceType,
-          // deviceToken
-
-
+          userType: userConstants.BARBER
         },
-        // include: {
-        //   selectedHairType: true,
-        //   selectedHairLength: true,
-        //   barberExperience: true,
-        //   BarberService: true
-        // }
+
       });
 
       if (!savebarber) {
@@ -579,7 +510,6 @@ const socailLogin = async (req, res, next) => {
   }
 }
 
-
 const barberCreateProfile = async (req, res, next) => {
   try {
     const { email } = req.user;
@@ -627,20 +557,18 @@ const barberCreateProfile = async (req, res, next) => {
       throw new ValidationError("Account not verified")
     }
 
+    // Update the barber's profile
     const savebarber = await prisma.barber.update({
-
       where: {
         email
       },
       data: {
         name,
-        // email,
         phoneNumber,
-        // password: hashedpassword,
         gender,
-        selectedHairTypeId: findhairtype.id,
-        selectedHairLengthId: findhairlength.id,
-        barberExperienceId: findexperience.id,
+        selectedHairType: { connect: { id: findhairtype.id } },  // Reference the related model directly
+        selectedHairLength: { connect: { id: findhairlength.id } },  // Reference the related model directly
+        barberExperience: { connect: { id: findexperience.id } }, // Reference the related model directly
         latitude,
         longitude,
         addressName: address,
@@ -652,11 +580,9 @@ const barberCreateProfile = async (req, res, next) => {
         country,
         postalCode: postalcode,
         userType: userConstants.BARBER,
-        handlerAccountId: account,
+        barberAccountId: account,
         deviceType,
         deviceToken
-
-
       },
       include: {
         selectedHairType: true,
@@ -670,13 +596,23 @@ const barberCreateProfile = async (req, res, next) => {
       throw new ValidationError("barber not save")
     }
 
-    await prisma.otp.update({
+    // Retrieve the OTP record by email first
+    const otpRecord = await prisma.otp.findFirst({
       where: {
         email
+      }
+    });
+
+    if (!otpRecord) {
+      throw new NotFoundError("OTP not found");
+    }
+
+    await prisma.otp.update({
+      where: {
+        id: otpRecord.id
       },
       data: {
         otpUsed: true,
-        // barberId: savebarber.id
       }
     });
 
@@ -696,6 +632,7 @@ const barberCreateProfile = async (req, res, next) => {
     next(error)
   }
 }
+
 module.exports = {
   singUp,
   verifyOtp,

@@ -179,25 +179,25 @@ model barberServiceCategory{
 model User{
   id             String      @id @default(uuid())
   email          String   @unique
-  firstName       String
-  lastName       String
-  phoneNumber    String
+  firstName       String?
+  lastName       String?
+  phoneNumber    String?
   password       String
-  gender         Gender 
+  gender         Gender ? 
   selectedHairTypeId   String?
   selectedHairType     hairType?    @relation("UserHairType", fields: [selectedHairTypeId], references: [id])
   selectedHairLengthId String?
   selectedHairLength   hairLength?  @relation("UserHairLength", fields: [selectedHairLengthId], references: [id])
-  latitude             Float
-  longitude            Float
-  addressName       String  
-  addressLine1     String
+  latitude             Float?
+  longitude            Float?
+  addressName       String  ?
+  addressLine1     String?
   addressLine2     String?
-  city                String
-  states              String
-  country             String
+  city                String?
+  states              String?
+  country             String?
   isCreatedProfile       Boolean  @default(false)
-  postalCode          String
+  postalCode          String?
   userType             userType?
   deviceType             deviceType?
   deviceToken            String?
@@ -226,10 +226,10 @@ model User{
 model Barber{
   id             String      @id @default(uuid())
   email          String   @unique
-  name       String
-  phoneNumber    String
+  name       String?
+  phoneNumber    String?
   password       String
-  gender         Gender 
+  gender         Gender ?
   isCreatedProfile       Boolean  @default(false)
   selectedHairTypeId   String?
   selectedHairType     hairType?    @relation("UserHairType", fields: [selectedHairTypeId], references: [id])
@@ -239,15 +239,15 @@ model Barber{
   barberExperience   barberExperience?  @relation(fields: [barberExperienceId], references: [id])
   barberServiceCategoryId String? 
   barberServiceCategory   barberServiceCategory? @relation(fields: [barberServiceCategoryId], references: [id])
-  latitude             Float
-  longitude            Float
-  addressName       String  
-  addressLine1     String
+  latitude             Float?
+  longitude            Float?
+  addressName       String?  
+  addressLine1     String?
   addressLine2     String?
-  city                String
-  states              String
-  country             String
-  postalCode          String
+  city                String?
+  states              String?
+  country             String?
+  postalCode          String?
   bio                 String?
   experience          String?  
   userType             userType?
@@ -448,9 +448,9 @@ model Payment {
   id                String         @id @default(uuid())
   bookingId         String         @unique
   amount            Float          // The amount of the booking
-  discount          Float          // Discount applied
+  // discount          Float          // Discount applied
   platformFee       Float          // Platform fee for the transaction
-  tip               Float          // Tip added by the user
+  // tip               Float          // Tip added by the user
   paymentMethod     PaymentMethod // Payment method used
   cancellationReason String?       // Reason for cancellation if the payment is cancelled
   status            PaymentStatus @default(PENDING) // Payment status (PENDING, COMPLETED, CANCELLED)

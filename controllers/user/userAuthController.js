@@ -60,7 +60,6 @@ const signUp = async (req, res, next) => {
 const verifyOtp = async (req, res, next) => {
   try {
     const { email, otp, password,
-      // latitude, longitude, address, addressLine1, addressLine2, city, state, country, postalcode
     } = req.body;
 
     const findotp = await prisma.otp.findFirst({
@@ -79,109 +78,83 @@ const verifyOtp = async (req, res, next) => {
       throw new ConflictError("otp expired")
     }
 
+    // if (findotp.otpReason === "REGISTER") {
+
+    //   const hashedpassword = await hashPassword(password, 10);
+
+    //   if (findotp.otpUsed) {
+    //     throw new ConflictError("OTP already used");
+    //   }
+
+    //   const saveuser = await prisma.user.create({
+    //     data: {
+    //       email,
+    //       password: hashedpassword,
+    //       userType: userConstants.USER
+    //     }
+    //   });
+
+    //   if (!saveuser) {
+    //     throw new ValidationError("user not save");
+    //   }
+
+    //   await prisma.otp.update({
+    //     where: {
+    //       id: findotp.id
+    //     },
+    //     data: {
+    //       otpUsed: true,
+    //     }
+    //   })
+
+    //   const token = genToken({
+    //     id: saveuser.id,
+    //     userType: userConstants.USER,
+    //   })
+
+    //   handlerOk(res, 200, { ...saveuser, userToken: token }, "user register successfully")
+    // }
+
     if (findotp.otpReason === "REGISTER") {
 
-      const hashedpassword = await hashPassword(password, 10);
+      const hashedPassword = await hashPassword(password, 10);
 
       if (findotp.otpUsed) {
         throw new ConflictError("OTP already used");
       }
 
-      // const findhairtype = await prisma.hairType.findUnique({
-      //   where: {
-      //     id: hairTypeId,
-      //   }
-      // });
-
-      // if (!findhairtype) {
-      //   throw new NotFoundError("hair type not found")
-      // }
-
-      // const findhairlength = await prisma.hairLength.findUnique({
-      //   where: {
-      //     id: hairLengthId
-      //   }
-      // });
-
-      // if (!findhairlength) {
-      //   throw new NotFoundError("hair length not found")
-      // }
-
-      // const customer = await createCustomer(email);
-
-      // if (!customer) {
-      //   throw new ValidationError("customer id is null")
-      // }
-
-      const saveuser = await prisma.user.create({
+      // Create the user without firstName and lastName
+      const saveUser = await prisma.user.create({
         data: {
           email,
-          // addressLine1,
-          // addressLine2,
-          // addressName: address,
-          // city,
-          // country,
-          // firstName,
-          // lastName,
-          // gender,
-          // latitude,
-          // longitude,
-          password: hashedpassword,
-          // phoneNumber,
-          // postalCode: postalcode,
-          // selectedHairLengthId: findhairlength.id,
-          // selectedHairTypeId: findhairtype.id,
-          // states: state,
-          // customerId: customer.id,
-          // deviceToken,
-          // deviceType,
-          userType: userConstants.USER
-        },
-        // include: {
-        //   selectedHairType: true,
-        //   selectedHairLength: true
-        // }
+          password: hashedPassword,
+          userType: userConstants.USER,
+        }
       });
 
-      if (!saveuser) {
-        throw new ValidationError("user not save");
+      if (!saveUser) {
+        throw new ValidationError("User not saved");
       }
 
-      // const saveaddress = await prisma.userAddress.create({
-      //   data: {
-      //     latitude,
-      //     longitude,
-      //     addressName: address,
-      //     addressLine1,
-      //     addressLine2,
-      //     city,
-      //     states: state,
-      //     country,
-      //     postalCode: postalcode,
-      //     createdById: saveuser.id
-      //   }
-      // });
-
-      // if (!saveaddress) {
-      //   throw new ValidationError("user address not save");
-      // }
-
+      // Mark OTP as used
       await prisma.otp.update({
         where: {
           id: findotp.id
         },
         data: {
           otpUsed: true,
-        }
-      })
+        },
+      });
 
+      // Generate token
       const token = genToken({
-        id: saveuser.id,
+        id: saveUser.id,
         userType: userConstants.USER,
-      })
+      });
 
-      handlerOk(res, 200, { ...saveuser, userToken: token }, "user register successfully")
+      handlerOk(res, 200, { ...saveUser, userToken: token }, "User registered successfully");
     }
+
     if (findotp.otpReason === "FORGETPASSWORD") {
       const finduser = await prisma.user.findUnique({
         where: {
@@ -647,9 +620,20 @@ const userCreateProfile = async (req, res, next) => {
       throw new ValidationError("user address not save");
     }
 
-    await prisma.otp.update({
+    // Retrieve the OTP record by email first
+    const otpRecord = await prisma.otp.findFirst({
       where: {
         email
+      }
+    });
+
+    if (!otpRecord) {
+      throw new NotFoundError("OTP not found");
+    }
+
+    await prisma.otp.update({
+      where: {
+        id: otpRecord.id
       },
       data: {
         otpUsed: true,

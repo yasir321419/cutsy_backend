@@ -89,6 +89,7 @@ barberAuthRouter.post(
 barberAuthRouter.post(
   "/barberCreateProfile",
   limiter,
+  verifyBarberToken,
   validateRequest(barberCreateProfileSchema),
   barberAuthController.barberCreateProfile
 );
