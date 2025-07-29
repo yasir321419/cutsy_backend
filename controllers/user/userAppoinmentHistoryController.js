@@ -2,38 +2,48 @@ const prisma = require("../../config/prismaConfig");
 const { NotFoundError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
 
+
 const showUserUpComingAppoinment = async (req, res, next) => {
   try {
     const { id } = req.user;
 
-    const upcomingappoinment = await prisma.booking.findMany({
+    // Extract the current time in "HH:mm" format
+    const currentTime = new Date().toISOString().slice(11, 16); // "HH:mm" format
+
+    console.log(currentTime, 'current time');  // Logs current time for debugging
+
+    const upcomingAppointment = await prisma.booking.findMany({
       where: {
         userId: id,
         status: "PENDING",
-        scheduledTime: {
-          gt: new Date()
-        }
+        startTime: {
+          gt: currentTime,  // Compare the start time stored in the DB with the current time
+        },
       },
       include: {
         barber: true,
-        services: true
-      }
+        services: true,
+      },
     });
 
-    if (upcomingappoinment.length === 0) {
-      throw new NotFoundError("No upcoming appoinment found")
+    if (upcomingAppointment.length === 0) {
+      throw new NotFoundError("No upcoming appointment found");
     }
 
-    handlerOk(res, 200, upcomingappoinment, "upcoming appoinment found successfully")
+    handlerOk(res, 200, upcomingAppointment, "Upcoming appointment found successfully");
 
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
+
 
 const showUserOngoingAppoinment = async (req, res, next) => {
   try {
     const { id } = req.user;
+
+    const currentTime = new Date().toISOString().slice(11, 16); // "HH:mm" format
+
 
     const ongoingappoinment = await prisma.booking.findMany({
       where: {
@@ -41,8 +51,8 @@ const showUserOngoingAppoinment = async (req, res, next) => {
         status: {
           in: ["ACCEPTED", "ARRIVED"]
         },
-        scheduledTime: {
-          lte: new Date()
+        startTime: {
+          lte: currentTime
         }
       },
       include: {
@@ -66,14 +76,17 @@ const showUserPastAppoinment = async (req, res, next) => {
   try {
     const { id } = req.user;
 
+    const currentTime = new Date().toISOString().slice(11, 16); // "HH:mm" format
+
+
     const pastappoinment = await prisma.booking.findMany({
       where: {
         userId: id,
         status: {
           in: ["CANCELLED", "COMPLETED", "PAID"]
         },
-        scheduledTime: {
-          lt: new Date()
+        startTime: {
+          lt: currentTime
         }
       },
       include: {

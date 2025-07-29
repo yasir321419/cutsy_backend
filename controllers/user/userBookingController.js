@@ -7,84 +7,250 @@ require("dotenv").config();
 const stripe = require("stripe")(process.env.STRIPE_KEY);
 
 
+// const createBookingAndPayment = async (req, res, next) => {
+//   try {
+//     const { barberId, scheduledTime, amount, locationName, locationLat, locationLng, services, paymentMethod } = req.body;
+//     const { id, customerId } = req.user;
+
+//     // Find the barber
+//     const findbarber = await prisma.barber.findUnique({
+//       where: {
+//         id: barberId,
+//       },
+//       include: {
+//         BarberAvailableHour: true
+//       }
+//     });
+
+//     console.log(findbarber, 'barber');
+
+
+//     if (!findbarber) {
+//       throw new NotFoundError("Barber not found");
+//     }
+
+//     // Constants for Stripe fees
+//     // const stripeFeePercentage = 0.029; // 2.9%
+//     // const stripeFeeFixed = 0.3; // $0.30
+
+//     // // Calculate the total amount after adding Stripe fees
+//     // const totalAmountWithFees =
+//     //   amount + amount * stripeFeePercentage + stripeFeeFixed;
+
+//     // // Calculate the total Stripe fees
+//     // const stripeFees = amount * stripeFeePercentage + stripeFeeFixed;
+
+//     // const fixedFees = stripeFees.toFixed(2);
+
+//     // // Message for the customer
+//     // const message = `To pay for your purchase with Stripe fees included, please pay $${totalAmountWithFees.toFixed(
+//     //   2
+//     // )}. This includes a Stripe fee of $${stripeFees.toFixed(2)}.`;
+
+//     // // Validate amount
+//     // if (amount < totalAmountWithFees) {
+//     //   return res.status(400).json({
+//     //     success: false,
+//     //     message: message,
+//     //   });
+//     // }
+
+//     // const amountInCents = Math.round(amount * 100); // Convert dollars to cents
+
+//     // Use the createPaymentIntent function to create the payment intent
+//     // const paymentIntent = await createPaymentIntent({
+//     //   amount: amountInCents,
+//     //   customer: customerId, // Assuming the user ID is the customer ID
+//     //   paymentMethodId: paymentMethod,
+//     //   returnUrl: `${process.env.FRONTEND_URL}/payment/success`, // Replace with your actual return URL
+//     // });
+
+//     // const paymentIntentRes = {
+//     //   paymentIntentId: paymentIntent.id,
+//     //   clientSecret: paymentIntent.client_secret,
+//     // };
+
+//     // Create the booking
+//     const booking = await prisma.booking.create({
+//       data: {
+//         userId: id,
+//         barberId: findbarber.id,
+//         scheduledTime,
+//         amount,
+//         locationName,
+//         locationLat,
+//         locationLng,
+//         services: {
+//           create: services.map(service => ({
+//             serviceCategoryId: service.serviceCategoryId,
+//             price: service.price,
+//           })),
+//         },
+//       },
+//     });
+
+//     if (!booking) {
+//       throw new ValidationError("Booking creation failed");
+//     }
+
+//     // Create a payment record in the database
+//     const payment = await prisma.payment.create({
+//       data: {
+//         bookingId: booking.id,
+//         amount,
+//         // discount: req.body.discount || 0,
+//         platformFee: stripeFees,
+//         // tip: req.body.tip || 0,
+//         // paymentMethod,
+//         // paymentIntentId: paymentIntent.id,  // Store the Stripe payment intent ID
+//         status: 'PENDING', // Set the initial payment status to PENDING
+//       },
+//     });
+
+//     if (!payment) {
+//       throw new ValidationError("Payment creation failed");
+//     }
+
+//     // Set a timeout to check for payment expiration
+
+//     // const handleExpiration = async () => {
+//     //   try {
+//     //     // Fetch the payment record using the payment ID
+//     //     const paymentRecord = await prisma.payment.findUnique({
+//     //       where: { id: payment.id },
+//     //       include: { booking: true },
+//     //     });
+
+//     //     // If the payment status is still pending, handle expiration
+//     //     if (paymentRecord && paymentRecord.status === 'PENDING') {
+//     //       console.log("Payment expired, handling expiration.");
+
+//     //       // Expire the payment (mark as cancelled)
+//     //       await prisma.payment.update({
+//     //         where: { id: paymentRecord.id },
+//     //         data: { status: 'CANCELLED' },  // Update payment status to CANCELLED
+//     //       });
+
+//     //       // Update the booking status to cancelled
+//     //       await prisma.booking.update({
+//     //         where: { id: paymentRecord.booking.id },
+//     //         data: { status: 'CANCELLED' }, // Mark booking as cancelled
+//     //       });
+
+//     //       // Optionally, cancel the Stripe payment intent
+//     //       await stripe.paymentIntents.cancel(paymentIntent.id);
+
+//     //       console.log("Payment and associated booking cancelled successfully.");
+//     //     }
+//     //   } catch (error) {
+//     //     console.error("Error handling payment expiration:", error);
+//     //   }
+//     // };
+
+//     // Set the expiration time (e.g., 5 minutes)
+//     // setTimeout(handleExpiration, 5 * 60 * 1000); // 5 minutes timeout
+
+//     // Send response with booking and payment details
+//     handlerOk(res, 200, {
+//       booking, payment,
+//       // paymentIntentRes
+//     }, "Booking and payment created successfully");
+
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 const createBookingAndPayment = async (req, res, next) => {
   try {
-    const { barberId, scheduledTime, amount, locationName, locationLat, locationLng, services, paymentMethod } = req.body;
-    const { id, customerId } = req.user;
+    const { barberId, day, startTime, endTime, amount, locationName, locationLat, locationLng, services } = req.body;
+    const { id } = req.user;
 
-    // Find the barber
+    // Ensure amount is a number (Float)
+    const amountAsFloat = parseFloat(amount);
+    if (isNaN(amountAsFloat)) {
+      throw new BadRequestError("Invalid amount provided");
+    }
+
+    // 1. Find the barber
     const findbarber = await prisma.barber.findUnique({
       where: {
         id: barberId,
       },
       include: {
-        BarberAvailableHour: true
+        BarberAvailableHour: true, // Barber's available hours
+        BarberService: true, // Barber's services
       }
     });
-
-    console.log(findbarber, 'barber');
-
 
     if (!findbarber) {
       throw new NotFoundError("Barber not found");
     }
 
-    // Constants for Stripe fees
-    // const stripeFeePercentage = 0.029; // 2.9%
-    // const stripeFeeFixed = 0.3; // $0.30
+    // 2. Normalize the times for comparison
+    const normalizeTime = (timeString) => {
+      const [hour, minute] = timeString.split(':');
+      return parseInt(hour) * 60 + parseInt(minute); // Convert to minutes
+    };
 
-    // // Calculate the total amount after adding Stripe fees
-    // const totalAmountWithFees =
-    //   amount + amount * stripeFeePercentage + stripeFeeFixed;
+    const normalizedStartTime = normalizeTime(startTime);
+    const normalizedEndTime = normalizeTime(endTime);
 
-    // // Calculate the total Stripe fees
-    // const stripeFees = amount * stripeFeePercentage + stripeFeeFixed;
+    // 3. Check if the barber is available at the selected time (startTime, endTime, and day)
+    const isAvailable = findbarber.BarberAvailableHour.some(hour => {
+      const normalizedBarberStartTime = normalizeTime(hour.startTime);
+      const normalizedBarberEndTime = normalizeTime(hour.endTime);
+      return hour.day.toLowerCase() === day.toLowerCase() &&
+        normalizedBarberStartTime <= normalizedStartTime &&
+        normalizedBarberEndTime >= normalizedEndTime;
+    });
 
-    // const fixedFees = stripeFees.toFixed(2);
+    if (!isAvailable) {
+      throw new BadRequestError("Barber is not available at the selected time.");
+    }
 
-    // // Message for the customer
-    // const message = `To pay for your purchase with Stripe fees included, please pay $${totalAmountWithFees.toFixed(
-    //   2
-    // )}. This includes a Stripe fee of $${stripeFees.toFixed(2)}.`;
+    // 4. Check if the selected service exists in BarberService
+    const selectedService = findbarber.BarberService.find(service => service.id === services);
+    if (!selectedService) {
+      throw new NotFoundError("Service not found or does not exist for this barber.");
+    }
 
-    // // Validate amount
-    // if (amount < totalAmountWithFees) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: message,
-    //   });
-    // }
+    // Ensure price is a float and matches the selected service's price
+    const servicePrice = parseFloat(selectedService.price);
+    if (isNaN(servicePrice)) {
+      throw new BadRequestError(`Invalid price for the selected service.`);
+    }
 
-    // const amountInCents = Math.round(amount * 100); // Convert dollars to cents
+    if (amountAsFloat !== servicePrice) {
+      throw new BadRequestError(`Invalid amount. The price for the selected service is $${servicePrice}`);
+    }
 
-    // Use the createPaymentIntent function to create the payment intent
-    // const paymentIntent = await createPaymentIntent({
-    //   amount: amountInCents,
-    //   customer: customerId, // Assuming the user ID is the customer ID
-    //   paymentMethodId: paymentMethod,
-    //   returnUrl: `${process.env.FRONTEND_URL}/payment/success`, // Replace with your actual return URL
-    // });
+    // Check if the service category exists
+    const serviceCategory = await prisma.barberServiceCategory.findUnique({
+      where: { id: selectedService.serviceCategoryId },
+    });
 
-    // const paymentIntentRes = {
-    //   paymentIntentId: paymentIntent.id,
-    //   clientSecret: paymentIntent.client_secret,
-    // };
+    if (!serviceCategory) {
+      throw new NotFoundError("Service category does not exist.");
+    }
 
-    // Create the booking
+    // 5. Create the booking
     const booking = await prisma.booking.create({
       data: {
         userId: id,
         barberId: findbarber.id,
-        scheduledTime,
-        amount,
+        day,
+        startTime,
+        endTime,
+        amount: amountAsFloat,
         locationName,
         locationLat,
         locationLng,
         services: {
-          create: services.map(service => ({
-            serviceCategoryId: service.serviceCategoryId,
-            price: service.price,
-          })),
+          create: [{
+            serviceCategoryId: selectedService.serviceCategoryId, // Reference the existing service category
+            price: servicePrice, // Store the price for the service
+          }],
         },
       },
     });
@@ -93,16 +259,11 @@ const createBookingAndPayment = async (req, res, next) => {
       throw new ValidationError("Booking creation failed");
     }
 
-    // Create a payment record in the database
+    // 6. Create the payment record in the database
     const payment = await prisma.payment.create({
       data: {
         bookingId: booking.id,
-        amount,
-        // discount: req.body.discount || 0,
-        platformFee: stripeFees,
-        // tip: req.body.tip || 0,
-        // paymentMethod,
-        // paymentIntentId: paymentIntent.id,  // Store the Stripe payment intent ID
+        amount: amountAsFloat,
         status: 'PENDING', // Set the initial payment status to PENDING
       },
     });
@@ -111,47 +272,8 @@ const createBookingAndPayment = async (req, res, next) => {
       throw new ValidationError("Payment creation failed");
     }
 
-    // Set a timeout to check for payment expiration
-
-    // const handleExpiration = async () => {
-    //   try {
-    //     // Fetch the payment record using the payment ID
-    //     const paymentRecord = await prisma.payment.findUnique({
-    //       where: { id: payment.id },
-    //       include: { booking: true },
-    //     });
-
-    //     // If the payment status is still pending, handle expiration
-    //     if (paymentRecord && paymentRecord.status === 'PENDING') {
-    //       console.log("Payment expired, handling expiration.");
-
-    //       // Expire the payment (mark as cancelled)
-    //       await prisma.payment.update({
-    //         where: { id: paymentRecord.id },
-    //         data: { status: 'CANCELLED' },  // Update payment status to CANCELLED
-    //       });
-
-    //       // Update the booking status to cancelled
-    //       await prisma.booking.update({
-    //         where: { id: paymentRecord.booking.id },
-    //         data: { status: 'CANCELLED' }, // Mark booking as cancelled
-    //       });
-
-    //       // Optionally, cancel the Stripe payment intent
-    //       await stripe.paymentIntents.cancel(paymentIntent.id);
-
-    //       console.log("Payment and associated booking cancelled successfully.");
-    //     }
-    //   } catch (error) {
-    //     console.error("Error handling payment expiration:", error);
-    //   }
-    // };
-
-    // Set the expiration time (e.g., 5 minutes)
-    // setTimeout(handleExpiration, 5 * 60 * 1000); // 5 minutes timeout
-
-    // Send response with booking and payment details
-    handlerOk(res, 200, { booking, payment, paymentIntentRes }, "Booking and payment created successfully");
+    // 7. Return the response with booking and payment details
+    handlerOk(res, 200, { booking, payment }, "Booking and payment created successfully");
 
   } catch (error) {
     next(error);
@@ -162,7 +284,7 @@ const showAppoinmentDetail = async (req, res, next) => {
   try {
     const { bookingId } = req.params;
     const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
+      where: { id: bookingId, status: 'PENDING' },
       include: {
         user: true,
         barber: true,
@@ -187,7 +309,7 @@ const cancelAppointment = async (req, res, next) => {
 
     // Fetch the booking to ensure it exists
     const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
+      where: { id: bookingId, status: "PENDING" },
       include: { payment: true },  // Include payment details with booking
     });
 
@@ -223,12 +345,15 @@ const cancelAppointment = async (req, res, next) => {
       }
 
       // Cancel the Stripe payment intent if payment exists
-      if (booking.payment.paymentIntentId) {
-        await stripeInstance.paymentIntents.cancel(booking.payment.paymentIntentId);
-      }
+      // if (booking.payment.paymentIntentId) {
+      //   await stripeInstance.paymentIntents.cancel(booking.payment.paymentIntentId);
+      // }
     }
 
-    handlerOk(res, 200, { cancelledBooking, cancelledPayment: booking.payment }, "Booking and payment cancelled successfully");
+    handlerOk(res, 200, {
+      cancelledBooking,
+      // cancelledPayment: booking.payment
+    }, "Booking and payment cancelled successfully");
 
   } catch (error) {
     next(error);
@@ -340,6 +465,7 @@ const showInvoiceDetail = async (req, res, next) => {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
+        user: true,
         services: true,
         payment: true, // Include payment details
       },
@@ -349,23 +475,35 @@ const showInvoiceDetail = async (req, res, next) => {
       throw new NotFoundError("Booking not found");
     }
 
-    const { amount, discount, platformFee, tip } = booking.payment;
+    console.log(booking, 'booking');
+
+    // return ''
+
+    const {
+      amount,
+      // discount,
+      platformFee,
+      // tip
+    } = booking.payment;
 
     // Calculate the total amount based on services, discount, platform fee, and tip
-    const totalAmount = amount + discount + platformFee + tip;
+    const totalAmount = amount
+    // discount +
+    // platformFee
+    // tip;
 
     const invoiceData = {
       bookingId: booking.id,
-      customerName: booking.user.name,
+      customerName: booking.user.firstName,
       services: booking.services.map(service => ({
-        name: service.serviceCategory.name,
+        // name: service.serviceCategory.firstName,
         price: service.price,
       })),
       subtotal: amount,
-      discount,
-      platformFee,
-      tip,
-      totalAmount,
+      // discount,
+      // platformFee,
+      // tip,
+      // totalAmount,
     };
 
     handlerOk(res, 200, invoiceData, "Invoice retrieved successfully");
@@ -411,26 +549,27 @@ const showPaymentReceipt = async (req, res, next) => {
 
 const submitReview = async (req, res, next) => {
   try {
-    const { bookingId, rating, comment } = req.body;
+    const { bookingId, rating, review } = req.body;
+    const { id } = req.user;
     const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
+      where: { id: bookingId, status: "COMPLETED" },
     });
 
     if (!booking) {
       throw new NotFoundError("Booking not found");
     }
 
-    const review = await prisma.review.create({
+    const createreview = await prisma.review.create({
       data: {
         bookingId,
         rating,
-        comment,
-        userId: req.user.id,
+        review,
+        userId: id,
         barberId: booking.barberId,
       },
     });
 
-    handlerOk(res, 200, review, "Review submitted successfully");
+    handlerOk(res, 200, createreview, "Review submitted successfully");
   } catch (error) {
     next(error);
   }

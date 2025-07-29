@@ -388,21 +388,27 @@ model BarberFavourite{
 
 model Review {
   id        String   @id @default(uuid())
-  rating    Int      // or Float
-  comment   String?
+  bookingId String   // This should be present and related to Booking
+  rating    Float
+  review    String
   userId    String
   barberId  String
-  createdAt DateTime @default(now())
 
-  barber    Barber   @relation(fields: [barberId], references: [id])
+  booking   Booking  @relation(fields: [bookingId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
+  barber    Barber   @relation(fields: [barberId], references: [id])
+
+  createdAt DateTime @default(now())
 }
+
 
 model Booking {
   id                String         @id @default(uuid())
   userId            String
   barberId          String
-  scheduledTime     DateTime
+  day     String
+  startTime        String
+  endTime         String
   amount            Float
   locationName      String
   locationLat       Float
@@ -420,6 +426,8 @@ model Booking {
 
   // Include the field for totalAmount, which is typically calculated based on various factors (amount, discount, etc.)
   totalAmount       Float?         // Optional: This can be stored for invoice calculation
+
+  Review Review[]
 }
 
 model BookingService {
@@ -433,15 +441,16 @@ model BookingService {
 }
 
 model BookingTracking {
-  id         String    @id @default(uuid())
-  bookingId  String
-  lat        Float
-  lng        Float
-  barberLat  Float     // Added for tracking barber's latitude
-  barberLng  Float     // Added for tracking barber's longitude
-  timestamp  DateTime  @default(now())
+  id            String   @id @default(uuid())
+  bookingId     String
+  lat           Float
+  lng           Float
+  barberLat     Float
+  barberLng     Float
+  status        String  // Ensure 'status' is a field of type String
+  timestamp     DateTime @default(now())
 
-  booking    Booking   @relation(fields: [bookingId], references: [id])
+  booking       Booking @relation(fields: [bookingId], references: [id])
 }
 
 model Payment {
@@ -449,14 +458,14 @@ model Payment {
   bookingId         String         @unique
   amount            Float          // The amount of the booking
   // discount          Float          // Discount applied
-  platformFee       Float          // Platform fee for the transaction
+  platformFee       Float?          // Platform fee for the transaction
   // tip               Float          // Tip added by the user
-  paymentMethod     PaymentMethod // Payment method used
+  paymentMethod     PaymentMethod? // Payment method used
   cancellationReason String?       // Reason for cancellation if the payment is cancelled
   status            PaymentStatus @default(PENDING) // Payment status (PENDING, COMPLETED, CANCELLED)
   createdAt         DateTime       @default(now())
-  paymentIntentId   String         // Payment provider's ID (for example, Stripe paymentIntentId)
-  totalAmount       Float          // The total amount after considering discount, tip, and platform fees
+  paymentIntentId   String ?        // Payment provider's ID (for example, Stripe paymentIntentId)
+  totalAmount       Float   ?       // The total amount after considering discount, tip, and platform fees
 
   booking           Booking        @relation(fields: [bookingId], references: [id])
 }

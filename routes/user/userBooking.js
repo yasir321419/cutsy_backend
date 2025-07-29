@@ -50,4 +50,11 @@ userBookingRouter.get(
   userBookingController.showPaymentReceipt
 );
 
+userBookingRouter.post(
+  "/submitReview",
+  limiter,
+  verifyUserToken,
+  userBookingController.submitReview
+);
+
 module.exports = userBookingRouter

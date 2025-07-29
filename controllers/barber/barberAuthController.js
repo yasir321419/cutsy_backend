@@ -212,6 +212,7 @@ const login = async (req, res, next) => {
         selectedHairLength: true,
         barberExperience: true,
         BarberAvailableHour: true,
+        Review: true,
         BarberService: {
           include: {
             serviceCategory: true
@@ -230,6 +231,12 @@ const login = async (req, res, next) => {
       throw new BadRequestError("invalid password");
     }
 
+    // Calculate the average rating and total number of reviews
+    const totalReviews = finduser.Review.length;
+    const averageRating = totalReviews > 0 ?
+      finduser.Review.reduce((sum, review) => sum + review.rating, 0) / totalReviews : 0;
+
+
     const token = genToken({
       id: finduser.id,
       userType: userConstants.BARBER,
@@ -237,6 +244,8 @@ const login = async (req, res, next) => {
 
     const response = {
       barberToken: token,
+      averageRating: averageRating,
+      totalReviews: totalReviews
     }
 
 
