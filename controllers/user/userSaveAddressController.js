@@ -5,7 +5,8 @@ const { handlerOk } = require("../../handler/resHandler");
 const saveUserAddress = async (req, res, next) => {
   try {
     const { latitude, longitude, address, addressLine1, addressLine2, city, state, country, postalcode } = req.body;
-    const { id } = req.user;
+    const { id, deviceToken, firstName } = req.user;
+
     const existaddress = await prisma.userAddress.findFirst({
       where: {
         latitude,
@@ -43,6 +44,13 @@ const saveUserAddress = async (req, res, next) => {
     if (!saveaddress) {
       throw new ValidationError("address not save")
     }
+
+    await sendNotification(
+      id,
+      deviceToken,
+      `Hi ${firstName}, you've successfully added a address to your list.`
+    );
+
 
     handlerOk(res, 200, saveaddress, "address saved successfully");
 

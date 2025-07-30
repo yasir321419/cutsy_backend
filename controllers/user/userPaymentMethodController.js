@@ -4,11 +4,18 @@ const { attachPaymentMethodToCustomer, hasPaymentMethod, getPaymentMethods } = r
 
 const addPaymentMethod = async (req, res, next) => {
   try {
-    const { customerId } = req.user;
+    const { customerId, id, deviceToken, firstName } = req.user;
     const { paymentMethodId } = req.body;
 
     // Call the function to attach the payment method to the customer and set it as default
     const paymentMethod = await attachPaymentMethodToCustomer(paymentMethodId, customerId);
+
+
+    await sendNotification(
+      id,
+      deviceToken,
+      `Hi ${firstName}, you've successfully added a payment method to your list.`
+    );
 
     handlerOk(res, 200, paymentMethod, "payment method added successfully");
 

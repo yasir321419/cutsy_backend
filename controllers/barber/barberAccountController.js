@@ -1,11 +1,12 @@
 const prisma = require("../../config/prismaConfig");
 const { ValidationError, NotFoundError, ConflictError, BadRequestError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
+const sendNotification = require("../../utils/notification");
 const { createExternalBankAccount, getAllBankDetail, verifyConnectedAccount, getBalance, createPayout, getBalanceTransactions } = require("../../utils/stripeApis");
 
 const addbarberBusinessAccount = async (req, res, next) => {
   try {
-    const { barberAccountId } = req.user;
+    const { barberAccountId, name, deviceToken } = req.user;
     const { accountNumber, routingNumber } = req.body;
 
     const externalAccount = await createExternalBankAccount({
@@ -17,6 +18,13 @@ const addbarberBusinessAccount = async (req, res, next) => {
     if (!externalAccount) {
       throw new ValidationError("external account not create")
     }
+
+    await sendNotification(
+      id,
+      deviceToken,
+      `Hi ${name}, you have successfully set up your business account.`
+    );
+
 
     handlerOk(res, 200, externalAccount, "external account created successfully")
 
@@ -110,7 +118,7 @@ const checkBarberBalance = async (req, res, next) => {
 const withDrawAmountBarber = async (req, res, next) => {
   try {
     const { amount, destination } = req.body;
-    const { id, barberAccountId } = req.user;
+    const { id, barberAccountId, name, deviceToken } = req.user;
 
     // Convert amount to cents if it's in dollars
     const amountInCents = amount * 100;
@@ -159,6 +167,13 @@ const withDrawAmountBarber = async (req, res, next) => {
     if (!deductamountinwallet) {
       throw new ValidationError("barber wallet not update")
     }
+
+    await sendNotification(
+      id,
+      deviceToken,
+      `Hi ${name}, you have successfully withdrawn ${amount}.`
+    );
+
 
     handlerOk(res, 200, payout, "payout successfully")
 

@@ -98,13 +98,13 @@ const showBarbersBySearchService = async (req, res, next) => {
 
 const saveBarberInFavoriteList = async (req, res, next) => {
   try {
-    const { id } = req.user;
+    const { id, deviceToken, firstName } = req.user;
     const { barberId } = req.params;
 
     const findbarber = await prisma.barber.findUnique({
       where: {
         id: barberId
-      }
+      },
     });
 
     if (!findbarber) {
@@ -132,6 +132,19 @@ const saveBarberInFavoriteList = async (req, res, next) => {
     if (!savebarberinfavoritelist) {
       throw new ValidationError("barber not save in favorite list")
     }
+
+    await sendNotification(
+      id,
+      deviceToken,
+      `Hi ${firstName}, you've successfully added "${findbarber.name}" to your favorite list.`
+    );
+
+    await sendNotification(
+      id,
+      findbarber.deviceToken,
+      `Hi ${findbarber.name}, you've been added to the favorite list of "${firstName}".`
+    );
+
 
     handlerOk(res, 200, savebarberinfavoritelist, "barber save in favorite list")
   } catch (error) {

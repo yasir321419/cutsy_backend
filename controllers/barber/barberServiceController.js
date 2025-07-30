@@ -1,10 +1,11 @@
 const prisma = require("../../config/prismaConfig");
 const { NotFoundError, ValidationError, ConflictError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
+const sendNotification = require("../../utils/notification");
 
 const addServices = async (req, res, next) => {
   try {
-    const { id } = req.user;
+    const { id, deviceToken, name } = req.user;
     const { serviceId } = req.params;
     const { price } = req.body;
 
@@ -45,6 +46,12 @@ const addServices = async (req, res, next) => {
       throw new ValidationError("service not created")
     }
 
+    await sendNotification(
+      id,
+      deviceToken,
+      `Hi ${name}, you've successfully added your services to the list.`
+    );
+
     handlerOk(res, 200, createservice, "service created successfully")
 
 
@@ -80,7 +87,7 @@ const showServices = async (req, res, next) => {
 const editService = async (req, res, next) => {
   try {
     const { serviceId } = req.params;
-    const { id } = req.user;
+    const { id, deviceToken, name } = req.user;
     const { price } = req.body;
 
     const findservice = await prisma.barberService.findUnique({
@@ -106,6 +113,12 @@ const editService = async (req, res, next) => {
     if (!updateservice) {
       throw new ValidationError("service not update")
     }
+
+    await sendNotification(
+      id,
+      deviceToken,
+      `Hi ${name}, you've successfully edit your service`
+    );
 
     handlerOk(res, 200, updateservice, "service updated successfully")
 

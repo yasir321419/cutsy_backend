@@ -1,10 +1,11 @@
 const prisma = require("../../config/prismaConfig");
 const { ValidationError, ConflictError, NotFoundError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
+const sendNotification = require("../../utils/notification");
 
 const addAvailableHour = async (req, res, next) => {
   try {
-    const { id } = req.user;
+    const { id, deviceToken, name } = req.user;
     const { starttime, endtime, day } = req.body;
 
     const existAvailableHour = await prisma.barberAvailableHour.findFirst({
@@ -37,6 +38,13 @@ const addAvailableHour = async (req, res, next) => {
       throw new ValidationError("available hour not created");
     }
 
+    await sendNotification(
+      id,
+      deviceToken,
+      `Hi ${name}, your available hours have been successfully added to your profile.`
+    );
+
+
     handlerOk(res, 200, createAvailableHour, "available hour created successfully");
 
 
@@ -68,7 +76,7 @@ const showAvailableHour = async (req, res, next) => {
 const barberSubmitDocument = async (req, res, next) => {
   try {
     const file = req.file;
-    const { id } = req.user;
+    const { id, name, deviceToken } = req.user;
     console.log(file, 'file');
 
 
@@ -86,6 +94,13 @@ const barberSubmitDocument = async (req, res, next) => {
     if (!submitdocument) {
       throw new ValidationError("document not submit");
     }
+
+    await sendNotification(
+      id,
+      deviceToken,
+      `Hi ${name}, your documents have been successfully added to your profile.`
+    );
+
 
     handlerOk(res, 200, submitdocument, "document submitted successfully")
 

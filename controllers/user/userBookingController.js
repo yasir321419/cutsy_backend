@@ -2,6 +2,7 @@ const prisma = require("../../config/prismaConfig");
 const { bookingConstants } = require("../../constant/constant");
 const { ValidationError, NotFoundError, BadRequestError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
+const sendNotification = require("../../utils/notification");
 const { createPaymentIntent } = require("../../utils/stripeApis");
 require("dotenv").config();
 const stripe = require("stripe")(process.env.STRIPE_KEY);
@@ -164,7 +165,7 @@ const stripe = require("stripe")(process.env.STRIPE_KEY);
 const createBookingAndPayment = async (req, res, next) => {
   try {
     const { barberId, day, startTime, endTime, amount, locationName, locationLat, locationLng, services } = req.body;
-    const { id } = req.user;
+    const { id, deviceToken, firstName } = req.user;
 
     // Ensure amount is a number (Float)
     const amountAsFloat = parseFloat(amount);
@@ -182,6 +183,8 @@ const createBookingAndPayment = async (req, res, next) => {
         BarberService: true, // Barber's services
       }
     });
+
+    console.log(findbarber, 'barber');
 
     if (!findbarber) {
       throw new NotFoundError("Barber not found");
@@ -272,6 +275,19 @@ const createBookingAndPayment = async (req, res, next) => {
       throw new ValidationError("Payment creation failed");
     }
 
+
+    await sendNotification(
+      id,
+      deviceToken,
+      `Hi ${firstName}, you've successfully booked an appointment with "${findbarber.name}"!`
+    );
+
+    await sendNotification(
+      id,
+      findbarber.deviceToken,
+      `Hi ${findbarber.name}, you have a new appointment booked with "${firstName}".`
+    );
+
     // 7. Return the response with booking and payment details
     handlerOk(res, 200, { booking, payment }, "Booking and payment created successfully");
 
@@ -306,11 +322,11 @@ const cancelAppointment = async (req, res, next) => {
   try {
     const { bookingId } = req.params;
     const { reason } = req.body;
-
+    const { id, deviceToken, firstName } = req.user;
     // Fetch the booking to ensure it exists
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId, status: "PENDING" },
-      include: { payment: true },  // Include payment details with booking
+      include: { payment: true, barber: true },  // Include payment details with booking
     });
 
     if (!booking) {
@@ -349,6 +365,19 @@ const cancelAppointment = async (req, res, next) => {
       //   await stripeInstance.paymentIntents.cancel(booking.payment.paymentIntentId);
       // }
     }
+
+    await sendNotification(
+      id,
+      deviceToken,
+      `Hi ${firstName}, you've successfully cancelled your appointment with "${booking.barber.name}".`
+    );
+
+    await sendNotification(
+      id,
+      booking.barber.deviceToken,
+      `Hi ${booking.barber.name}, the appointment with "${firstName}" has been cancelled.`
+    );
+
 
     handlerOk(res, 200, {
       cancelledBooking,
@@ -550,9 +579,10 @@ const showPaymentReceipt = async (req, res, next) => {
 const submitReview = async (req, res, next) => {
   try {
     const { bookingId, rating, review } = req.body;
-    const { id } = req.user;
+    const { id, deviceToken, firstName } = req.user;
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId, status: "COMPLETED" },
+      include: { barber: true }
     });
 
     if (!booking) {
@@ -568,6 +598,20 @@ const submitReview = async (req, res, next) => {
         barberId: booking.barberId,
       },
     });
+
+    await sendNotification(
+      id,
+      deviceToken,
+      `Hi ${firstName}, you've successfully submitted your review for "${booking.barber.name}".`
+    );
+
+
+    await sendNotification(
+      id,
+      booking.barber.deviceToken,
+      `Hi ${booking.barber.name}, you've received a review from "${firstName}".`
+    );
+
 
     handlerOk(res, 200, createreview, "Review submitted successfully");
   } catch (error) {
