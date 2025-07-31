@@ -45,8 +45,10 @@ const verifyConnectedAccount = async (accountId) => {
   try {
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
-      refresh_url: "https://api.healingpaws.tech/api/v1/reauth",
-      return_url: `https://api.healingpaws.tech/api/v1/success/${accountId}`,
+      // refresh_url: "https://api.healingpaws.tech/api/v1/reauth",
+      // return_url: `https://api.healingpaws.tech/api/v1/success/${accountId}`,
+      refresh_url: "http://localhost:4000/api/v1/reauth",
+      return_url: `http://localhost:4000/api/v1/success/${accountId}`,
       type: "account_onboarding",
     });
     return accountLink.url;
@@ -180,7 +182,7 @@ const createPaymentIntent = async ({
   amount,
   customer,
   paymentMethodId,
-  returnUrl,
+  metadata,  // New metadata parameter
 }) => {
   try {
     const paymentIntent = await stripe.paymentIntents.create({
@@ -189,14 +191,13 @@ const createPaymentIntent = async ({
       customer: customer,
       payment_method: paymentMethodId,
       confirmation_method: "manual",
-      // metadata: metadata,
+      metadata: metadata,  // Add metadata here
       confirm: false, // Set confirm to false
     });
 
-    // Manually confirm the payment intent with the returnUrl
+    // Manually confirm the payment intent without a return URL
     const confirmedPaymentIntent = await stripe.paymentIntents.confirm(
-      paymentIntent.id,
-      { return_url: returnUrl }
+      paymentIntent.id
     );
 
     return confirmedPaymentIntent;
@@ -205,6 +206,7 @@ const createPaymentIntent = async ({
     throw error;
   }
 };
+
 
 //transfer amount into another account
 

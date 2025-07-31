@@ -457,9 +457,7 @@ model Payment {
   id                String         @id @default(uuid())
   bookingId         String         @unique
   amount            Float          // The amount of the booking
-  // discount          Float          // Discount applied
   platformFee       Float?          // Platform fee for the transaction
-  // tip               Float          // Tip added by the user
   paymentMethod     PaymentMethod? // Payment method used
   cancellationReason String?       // Reason for cancellation if the payment is cancelled
   status            PaymentStatus @default(PENDING) // Payment status (PENDING, COMPLETED, CANCELLED)
