@@ -9,7 +9,7 @@ require("dotenv").config();
 
 const verifyUserToken = async (req, res, next) => {
   try {
-    const token = req.headers["x-access-token"];
+    const token = req.headers["x-access-token"] || req.headers["authorization"]?.split(" ")[1];
     if (!token || token === "" || token === undefined || token === false) {
       throw new BadRequestError("A token is required for authentication");
     }
@@ -46,7 +46,7 @@ const verifyUserToken = async (req, res, next) => {
 
 const verifyBarberToken = async (req, res, next) => {
   try {
-    const token = req.headers["x-access-token"];
+    const token = req.headers["x-access-token"] || req.headers["authorization"]?.split(" ")[1];
     if (!token || token === "" || token === undefined || token === false) {
       throw new BadRequestError("A token is required for authentication");
     }
@@ -83,7 +83,7 @@ const verifyBarberToken = async (req, res, next) => {
 
 const verifyAdminToken = async (req, res, next) => {
   try {
-    const token = req.headers["x-access-token"];
+    const token = req.headers["x-access-token"] || req.headers["authorization"]?.split(" ")[1];
     if (!token || token === "" || token === undefined || token === false) {
       throw new BadRequestError("A token is required for authentication");
     }
@@ -120,7 +120,7 @@ const verifyAdminToken = async (req, res, next) => {
 };
 
 const optionalAdminAuth = async (req, res, next) => {
-  const token = req.headers["x-access-token"];
+  const token = req.headers["x-access-token"] || req.headers["authorization"]?.split(" ")[1];
 
   if (token) {
     try {
@@ -157,15 +157,15 @@ const optionalAdminAuth = async (req, res, next) => {
 const verifyMultiRoleToken = async (req, res, next) => {
   try {
     // Try user token
-    await verifyUserToken(req, res, () => {});
+    await verifyUserToken(req, res, () => { });
     if (req.user) return next();
 
     // Try admin token
-    await verifyAdminToken(req, res, () => {});
+    await verifyAdminToken(req, res, () => { });
     if (req.user) return next();
 
     // Try barber token
-    await verifyBarberToken(req, res, () => {});
+    await verifyBarberToken(req, res, () => { });
     if (req.user) return next();
 
     return res.status(401).json({ message: "Unauthorized. Token invalid for all roles." });
@@ -175,4 +175,4 @@ const verifyMultiRoleToken = async (req, res, next) => {
 };
 
 
-module.exports = { verifyUserToken, verifyAdminToken, optionalAdminAuth, verifyBarberToken,verifyMultiRoleToken };
+module.exports = { verifyUserToken, verifyAdminToken, optionalAdminAuth, verifyBarberToken, verifyMultiRoleToken };
