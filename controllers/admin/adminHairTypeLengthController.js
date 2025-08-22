@@ -36,33 +36,41 @@ const adminCreateHairType = async (req, res, next) => {
   }
 }
 
+
+
 const adminShowHairType = async (req, res, next) => {
   try {
-    const { id } = req.user;
+    // Check if user is authenticated (admin)
+    const { id: userId, userType } = req.user || {};  // Get userId from req.user if available
+
+    // Log the user type and id to confirm
+    console.log(userId, userType);
 
     let hairTypes;
 
-
-    if (req.user && req.user.id) {
+    if (userType === "admin" && userId) {
+      // For admins (with token), fetch hair types created by this admin
       hairTypes = await prisma.hairType.findMany({
         where: {
-          createdById: id
+          createdById: userId
         }
-      })
+      });
     } else {
-      hairTypes = await prisma.hairType.findMany()
+      // For regular users (no token or non-admins), fetch all hair types
+      hairTypes = await prisma.hairType.findMany();
     }
 
     if (hairTypes.length === 0) {
-      throw new NotFoundError("no hair type found")
+      throw new NotFoundError("No hair type found");
     }
 
-    handlerOk(res, 200, hairTypes, "hair types found successfully")
+    handlerOk(res, 200, hairTypes, "Hair types found successfully");
 
   } catch (error) {
-    next(error)
+    next(error);
   }
 }
+
 
 const adminUpdateHairType = async (req, res, next) => {
   try {
@@ -172,31 +180,34 @@ const adminCreateHairLength = async (req, res, next) => {
 
 const adminShowHairLength = async (req, res, next) => {
   try {
-    const { id } = req.user;
+    // Check if req.user is available (for admins)
+    const { id: userId, userType } = req.user || {};  // Destructure to get userId and userType (if available)
 
     let hairLengths;
 
-    if (req.user && req.user.id) {
+    if (userType === "admin" && userId) {
+      // If the user is an admin, fetch hair lengths created by them
       hairLengths = await prisma.hairLength.findMany({
         where: {
-          createdById: id
+          createdById: userId
         }
-      })
+      });
     } else {
-      hairLengths = await prisma.hairLength.findMany()
+      // If no user is logged in (or it's a regular user without a token), fetch all hair lengths
+      hairLengths = await prisma.hairLength.findMany();
     }
-
 
     if (hairLengths.length === 0) {
-      throw new NotFoundError("no hair length found")
+      throw new NotFoundError("No hair length found");
     }
 
-    handlerOk(res, 200, hairLengths, "hair lengths found successfully")
+    handlerOk(res, 200, hairLengths, "Hair lengths found successfully");
 
   } catch (error) {
-    next(error)
+    next(error);
   }
 }
+
 
 const adminUpdateHairLength = async (req, res, next) => {
   try {
