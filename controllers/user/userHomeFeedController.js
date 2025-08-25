@@ -189,23 +189,10 @@ const showBarberFavouriteList = async (req, res, next) => {
 
 const showTrendingBarbers = async (req, res, next) => {
   try {
-    const trendingBarberRatings = await prisma.review.groupBy({
-      by: ['barberId'],
-      _avg: { rating: true },
-      _count: { rating: true },
-      orderBy: {
-        _avg: { rating: 'desc' }
-      },
-      take: 20
-    });
 
-    const barberIds = trendingBarberRatings.map(r => r.barberId);
-
-    const barbers = await prisma.barber.findMany({
-      where: {
-        id: { in: barberIds }
-      },
+    const showallbarber = await prisma.barber.findMany({
       include: {
+
         BarberService: {
           include: {
             serviceCategory: true
@@ -218,17 +205,46 @@ const showTrendingBarbers = async (req, res, next) => {
 
       }
     });
+    // const trendingBarberRatings = await prisma.review.groupBy({
+    //   by: ['barberId'],
+    //   _avg: { rating: true },
+    //   _count: { rating: true },
+    //   orderBy: {
+    //     _avg: { rating: 'desc' }
+    //   },
+    //   take: 20
+    // });
 
-    const barbersWithRatings = barbers.map(barber => {
-      const ratingInfo = trendingBarberRatings.find(r => r.barberId === barber.id);
-      return {
-        ...barber,
-        averageRating: ratingInfo?._avg?.rating || 0,
-        totalReviews: ratingInfo?._count?.rating || 0
-      };
-    });
+    // const barberIds = trendingBarberRatings.map(r => r.barberId);
 
-    handlerOk(res, 200, barbersWithRatings, "trending barbers fetched successfully");
+    // const barbers = await prisma.barber.findMany({
+    //   where: {
+    //     id: { in: barberIds }
+    //   },
+    //   include: {
+    //     BarberService: {
+    //       include: {
+    //         serviceCategory: true
+    //       }
+    //     },
+    //     selectedHairType: true,
+    //     selectedHairLength: true,
+    //     barberExperience: true,
+    //     BarberAvailableHour: true
+
+    //   }
+    // });
+
+    // const barbersWithRatings = barbers.map(barber => {
+    //   const ratingInfo = trendingBarberRatings.find(r => r.barberId === barber.id);
+    //   return {
+    //     ...barber,
+    //     averageRating: ratingInfo?._avg?.rating || 0,
+    //     totalReviews: ratingInfo?._count?.rating || 0
+    //   };
+    // });
+
+    handlerOk(res, 200, showallbarber, "trending barbers fetched successfully");
   } catch (error) {
     next(error);
   }

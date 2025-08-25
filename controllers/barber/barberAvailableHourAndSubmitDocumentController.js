@@ -38,11 +38,11 @@ const addAvailableHour = async (req, res, next) => {
       throw new ValidationError("available hour not created");
     }
 
-    await sendNotification(
-      id,
-      deviceToken,
-      `Hi ${name}, your available hours have been successfully added to your profile.`
-    );
+    // await sendNotification(
+    //   id,
+    //   deviceToken,
+    //   `Hi ${name}, your available hours have been successfully added to your profile.`
+    // );
 
 
     handlerOk(res, 200, createAvailableHour, "available hour created successfully");
