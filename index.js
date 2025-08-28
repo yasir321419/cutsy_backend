@@ -18,6 +18,8 @@ const jwt = require("jsonwebtoken");
 const stripe = require("stripe");// ← You need this
 const stripeInstance = stripe(process.env.STRIPE_KEY);
 const { handlePaymentIntentSucceeded, handlePaymentIntentPaymentFailed } = require("./utils/paymentStatus")
+const morgan = require('morgan');
+
 
 app.use(cors());
 app.use('/public', express.static('public'));
@@ -71,6 +73,9 @@ app.set('io', io);
 
 
 app.use(API_PRIFEX, rootRouter);
+
+app.use(morgan('dev'));
+
 
 // Global error handling
 app.use(globalErrorMiddleware);
