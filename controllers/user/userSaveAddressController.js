@@ -45,11 +45,11 @@ const saveUserAddress = async (req, res, next) => {
       throw new ValidationError("address not save")
     }
 
-    await sendNotification(
-      id,
-      deviceToken,
-      `Hi ${firstName}, you've successfully added a address to your list.`
-    );
+    // await sendNotification(
+    //   id,
+    //   deviceToken,
+    //   `Hi ${firstName}, you've successfully added a address to your list.`
+    // );
 
 
     handlerOk(res, 200, saveaddress, "address saved successfully");

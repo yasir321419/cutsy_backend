@@ -19,11 +19,11 @@ const addbarberBusinessAccount = async (req, res, next) => {
       throw new ValidationError("external account not create")
     }
 
-    await sendNotification(
-      id,
-      deviceToken,
-      `Hi ${name}, you have successfully set up your business account.`
-    );
+    // await sendNotification(
+    //   id,
+    //   deviceToken,
+    //   `Hi ${name}, you have successfully set up your business account.`
+    // );
 
 
     handlerOk(res, 200, externalAccount, "external account created successfully")
@@ -168,11 +168,11 @@ const withDrawAmountBarber = async (req, res, next) => {
       throw new ValidationError("barber wallet not update")
     }
 
-    await sendNotification(
-      id,
-      deviceToken,
-      `Hi ${name}, you have successfully withdrawn ${amount}.`
-    );
+    // await sendNotification(
+    //   id,
+    //   deviceToken,
+    //   `Hi ${name}, you have successfully withdrawn ${amount}.`
+    // );
 
 
     handlerOk(res, 200, payout, "payout successfully")

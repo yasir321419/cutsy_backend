@@ -95,11 +95,11 @@ const barberSubmitDocument = async (req, res, next) => {
       throw new ValidationError("document not submit");
     }
 
-    await sendNotification(
-      id,
-      deviceToken,
-      `Hi ${name}, your documents have been successfully added to your profile.`
-    );
+    // await sendNotification(
+    //   id,
+    //   deviceToken,
+    //   `Hi ${name}, your documents have been successfully added to your profile.`
+    // );
 
 
     handlerOk(res, 200, submitdocument, "document submitted successfully")

@@ -13,6 +13,7 @@ const createBookingAndPayment = async (req, res, next) => {
     const { barberId, day, startTime, endTime, amount, locationName, locationLat, locationLng, services, paymentMethod } = req.body;
     const { id, deviceToken, firstName } = req.user;
 
+
     // Ensure amount is a number (Float)
 
     const amountAsFloat = parseFloat(amount);
@@ -62,9 +63,10 @@ const createBookingAndPayment = async (req, res, next) => {
 
     // 4. Check if the selected service exists in BarberService
 
-    const selectedService = findbarber.BarberService.find(service => service.id === services);
+    const selectedService = findbarber.BarberService.filter(service => services.include(service.id));
+
     if (!selectedService) {
-      throw new NotFoundError("Service not found or does not exist for this barber.");
+      throw new NotFoundError("Service does not exist for this barber.");
     }
 
     // Ensure price is a float and matches the selected service's price
@@ -157,17 +159,17 @@ const createBookingAndPayment = async (req, res, next) => {
     }
 
     // Send notifications
-    await sendNotification(
-      id,
-      deviceToken,
-      `Hi ${firstName}, you've successfully booked an appointment with "${findbarber.name}"!`
-    );
+    // await sendNotification(
+    //   id,
+    //   deviceToken,
+    //   `Hi ${firstName}, you've successfully booked an appointment with "${findbarber.name}"!`
+    // );
 
-    await sendNotification(
-      id,
-      findbarber.deviceToken,
-      `Hi ${findbarber.name}, you have a new appointment booked with "${firstName}".`
-    );
+    // await sendNotification(
+    //   id,
+    //   findbarber.deviceToken,
+    //   `Hi ${findbarber.name}, you have a new appointment booked with "${firstName}".`
+    // );
 
     //     // Set a timeout to check for payment expiration
 
@@ -288,17 +290,17 @@ const cancelAppointment = async (req, res, next) => {
       // }
     }
 
-    await sendNotification(
-      id,
-      deviceToken,
-      `Hi ${firstName}, you've successfully cancelled your appointment with "${booking.barber.name}".`
-    );
+    // await sendNotification(
+    //   id,
+    //   deviceToken,
+    //   `Hi ${firstName}, you've successfully cancelled your appointment with "${booking.barber.name}".`
+    // );
 
-    await sendNotification(
-      id,
-      booking.barber.deviceToken,
-      `Hi ${booking.barber.name}, the appointment with "${firstName}" has been cancelled.`
-    );
+    // await sendNotification(
+    //   id,
+    //   booking.barber.deviceToken,
+    //   `Hi ${booking.barber.name}, the appointment with "${firstName}" has been cancelled.`
+    // );
 
 
     handlerOk(res, 200, {
@@ -521,18 +523,18 @@ const submitReview = async (req, res, next) => {
       },
     });
 
-    await sendNotification(
-      id,
-      deviceToken,
-      `Hi ${firstName}, you've successfully submitted your review for "${booking.barber.name}".`
-    );
+    // await sendNotification(
+    //   id,
+    //   deviceToken,
+    //   `Hi ${firstName}, you've successfully submitted your review for "${booking.barber.name}".`
+    // );
 
 
-    await sendNotification(
-      id,
-      booking.barber.deviceToken,
-      `Hi ${booking.barber.name}, you've received a review from "${firstName}".`
-    );
+    // await sendNotification(
+    //   id,
+    //   booking.barber.deviceToken,
+    //   `Hi ${booking.barber.name}, you've received a review from "${firstName}".`
+    // );
 
 
     handlerOk(res, 200, createreview, "Review submitted successfully");

@@ -11,11 +11,11 @@ const addPaymentMethod = async (req, res, next) => {
     const paymentMethod = await attachPaymentMethodToCustomer(paymentMethodId, customerId);
 
 
-    await sendNotification(
-      id,
-      deviceToken,
-      `Hi ${firstName}, you've successfully added a payment method to your list.`
-    );
+    // await sendNotification(
+    //   id,
+    //   deviceToken,
+    //   `Hi ${firstName}, you've successfully added a payment method to your list.`
+    // );
 
     handlerOk(res, 200, paymentMethod, "payment method added successfully");
 

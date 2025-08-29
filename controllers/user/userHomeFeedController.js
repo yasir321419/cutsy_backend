@@ -133,17 +133,17 @@ const saveBarberInFavoriteList = async (req, res, next) => {
       throw new ValidationError("barber not save in favorite list")
     }
 
-    await sendNotification(
-      id,
-      deviceToken,
-      `Hi ${firstName}, you've successfully added "${findbarber.name}" to your favorite list.`
-    );
+    // await sendNotification(
+    //   id,
+    //   deviceToken,
+    //   `Hi ${firstName}, you've successfully added "${findbarber.name}" to your favorite list.`
+    // );
 
-    await sendNotification(
-      id,
-      findbarber.deviceToken,
-      `Hi ${findbarber.name}, you've been added to the favorite list of "${firstName}".`
-    );
+    // await sendNotification(
+    //   id,
+    //   findbarber.deviceToken,
+    //   `Hi ${findbarber.name}, you've been added to the favorite list of "${firstName}".`
+    // );
 
 
     handlerOk(res, 200, savebarberinfavoritelist, "barber save in favorite list")

@@ -46,11 +46,11 @@ const addServices = async (req, res, next) => {
       throw new ValidationError("service not created")
     }
 
-    await sendNotification(
-      id,
-      deviceToken,
-      `Hi ${name}, you've successfully added your services to the list.`
-    );
+    // await sendNotification(
+    //   id,
+    //   deviceToken,
+    //   `Hi ${name}, you've successfully added your services to the list.`
+    // );
 
     handlerOk(res, 200, createservice, "service created successfully")
 
@@ -114,11 +114,11 @@ const editService = async (req, res, next) => {
       throw new ValidationError("service not update")
     }
 
-    await sendNotification(
-      id,
-      deviceToken,
-      `Hi ${name}, you've successfully edit your service`
-    );
+    // await sendNotification(
+    //   id,
+    //   deviceToken,
+    //   `Hi ${name}, you've successfully edit your service`
+    // );
 
     handlerOk(res, 200, updateservice, "service updated successfully")
 
