@@ -10,8 +10,9 @@ const stripe = require("stripe")(process.env.STRIPE_KEY);
 
 const createBookingAndPayment = async (req, res, next) => {
   try {
-    const { barberId, day, startTime, endTime, amount, locationName, locationLat, locationLng, services, paymentMethod } = req.body;
-    const { id, deviceToken, firstName } = req.user;
+    const { barberId, day, startTime, endTime, amount, locationName, locationLat, locationLng, services,
+    } = req.body;
+    const { id, deviceToken, firstName, customerId } = req.user;
 
 
     // Ensure amount is a number (Float)
@@ -63,39 +64,60 @@ const createBookingAndPayment = async (req, res, next) => {
 
     // 4. Check if the selected service exists in BarberService
 
-    const selectedService = findbarber.BarberService.filter(service => services.include(service.id));
+    const selectedService = findbarber.BarberService.filter(service => services.includes(service.id));
 
     if (!selectedService) {
       throw new NotFoundError("Service does not exist for this barber.");
     }
 
-    // Ensure price is a float and matches the selected service's price
+    // Parse & total prices
+    const servicePrices = selectedService.map(s => {
+      const n = parseFloat(s.price);
+      if (Number.isNaN(n)) throw new BadRequestError(`Invalid price on service ${s.id}`);
+      return n;
+    });
+    const totalPrice = parseFloat(servicePrices.reduce((a, b) => a + b, 0).toFixed(2));
 
-    const servicePrice = parseFloat(selectedService.price);
-    if (isNaN(servicePrice)) {
-      throw new BadRequestError(`Invalid price for the selected service.`);
+    // Compare client amount vs computed total (use cents to avoid float issues)
+    const toCents = n => Math.round(n * 100);
+
+    // --- NEW: Fees check & early return if user sent subtotal (no fees) ---
+    const feePct = 0.029;
+    const feeFixed = 0.30;
+
+    const subtotal = totalPrice; // services sum
+    const fees = parseFloat((subtotal * feePct + feeFixed).toFixed(2));
+    const totalAmountWithFees = parseFloat((subtotal + fees).toFixed(2));
+
+    // If user sent only subtotal (e.g., 200) and not total with fees (e.g., 206.10)
+    const userProvidedSubtotalOnly = toCents(amountAsFloat) === toCents(subtotal);
+
+
+    if (userProvidedSubtotalOnly && fees > 0) {
+      return handlerOk(
+        res,
+        422,
+        {
+          code: "AMOUNT_EXCLUDES_FEES",
+          feeNotice: {
+            message: `Heads up: a processing fee of $${fees.toFixed(2)} will be added. Your total is $${totalAmountWithFees.toFixed(2)}.`,
+            breakdown: {
+              subtotal: subtotal.toFixed(2),
+              fees: fees.toFixed(2),
+              total: totalAmountWithFees.toFixed(2),
+            },
+            suggestedAmount: totalAmountWithFees.toFixed(2),
+          }
+        },
+        "Amount excludes processing fees"
+      );
     }
-
-    if (amountAsFloat !== servicePrice) {
-      throw new BadRequestError(`Invalid amount. The price for the selected service is $${servicePrice}`);
-    }
-
-    // 5. Calculate Stripe Fees
-
-    const stripeFeePercentage = 0.029; // 2.9%
-    const stripeFeeFixed = 0.3; // $0.30
-
-    const stripeFees = amount * stripeFeePercentage + stripeFeeFixed; // Stripe fee calculation
-
-    // Calculate the total amount after adding Stripe fees
-
-    const totalAmountWithFees = amountAsFloat + stripeFees;
 
     // 6. Create the payment intent with the fee adjustments
 
     const metadata = {
       barberId: findbarber.id,
-      serviceId: selectedService.id,
+      serviceId: selectedService.map(s => s.id).join(','),
       userId: id,
       startTime: startTime,
       endTime: endTime,
@@ -105,8 +127,7 @@ const createBookingAndPayment = async (req, res, next) => {
 
     const paymentIntent = await createPaymentIntent({
       amount: Math.round(totalAmountWithFees * 100),  // Convert to cents
-      customer: id,  // Assuming user ID is the customer ID
-      paymentMethodId: paymentMethod,  // Payment method ID from frontend
+      customer: customerId,  // Assuming user ID is the customer ID
       metadata: metadata,  // Pass the metadata here
     });
 
@@ -129,12 +150,14 @@ const createBookingAndPayment = async (req, res, next) => {
         locationLat,
         locationLng,
         services: {
-          create: [{
-            serviceCategoryId: selectedService.serviceCategoryId, // Reference the existing service category
-            price: servicePrice, // Store the price for the service
-          }],
+          create: selectedService.map(s => ({
+            serviceCategory: { connect: { id: s.serviceCategoryId } },
+            price: parseFloat(s.price),
+          })),
         },
       },
+      include: { services: true },
+
     });
 
     if (!booking) {
@@ -150,7 +173,6 @@ const createBookingAndPayment = async (req, res, next) => {
         totalAmount: totalAmountWithFees, // Store the total amount with fees
         status: 'PENDING', // Set the initial payment status to PENDING
         paymentIntentId: paymentIntent.id,
-        paymentMethod: paymentMethod,  // Store the payment method
       },
     });
 

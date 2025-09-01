@@ -181,26 +181,22 @@ const getBalanceTransaction = async ({ accountId }) => {
 const createPaymentIntent = async ({
   amount,
   customer,
-  paymentMethodId,
   metadata,  // New metadata parameter
 }) => {
   try {
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount,
+      amount, // already in cents
       currency: "usd",
-      customer: customer,
-      payment_method: paymentMethodId,
-      confirmation_method: "manual",
-      metadata: metadata,  // Add metadata here
-      confirm: false, // Set confirm to false
+      customer,
+      automatic_payment_methods: {
+        enabled: true,
+        allow_redirects: "never", // avoids return_url requirement
+      },
+      metadata,
     });
 
-    // Manually confirm the payment intent without a return URL
-    const confirmedPaymentIntent = await stripe.paymentIntents.confirm(
-      paymentIntent.id
-    );
-
-    return confirmedPaymentIntent;
+    // DO NOT confirm here — let the client confirm using the client_secret
+    return paymentIntent;
   } catch (error) {
     console.error("Error creating payment intent:", error);
     throw error;
