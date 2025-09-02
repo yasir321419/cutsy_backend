@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const { NotFoundError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
-const { attachPaymentMethodToCustomer, hasPaymentMethod, getPaymentMethods, createPaymentIntent } = require("../../utils/stripeApis");
+const { hasPaymentMethod } = require("../../utils/stripeApis");
 
 // stripe init (keep in one place)
 const stripe = require('stripe')(process.env.STRIPE_KEY, {
