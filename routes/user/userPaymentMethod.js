@@ -13,7 +13,7 @@ userPaymentMethodRouter.post(
   "/addPaymentMethod",
   limiter,
   verifyUserToken,
-  validateRequest(userAddPaymentMethodSchema),
+  // validateRequest(userAddPaymentMethodSchema),
   userPaymentMethodController.addPaymentMethod
 );
 

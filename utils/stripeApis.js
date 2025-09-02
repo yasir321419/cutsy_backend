@@ -240,32 +240,22 @@ const refundAmount = async ({ amount, transferId }) => {
 const hasPaymentMethod = async (customerId) => {
   try {
     // List payment methods for the customer
-    const paymentMethods = await stripe.paymentMethods.list({
-      customer: customerId,
-      type: "card", // Specify the type of payment methods you want to retrieve
-    });
+    const list = await stripe.paymentMethods.list({ customer: customerId, type: 'card' });
+    return list.data.map(pm => ({
+      id: pm.id,
+      brand: pm.card?.brand,
+      last4: pm.card?.last4,
+      expMonth: pm.card?.exp_month,
+      expYear: pm.card?.exp_year,
+    }));
 
-    // Return true if there are payment methods, otherwise false
-    return paymentMethods.data.length > 0;
   } catch (error) {
     console.error("Error retrieving payment methods:", error);
     return { success: false, message: "Failed to fetch payment methods" }; // Return error message
   }
 };
 
-// Function to retrieve all payment methods
-const getPaymentMethods = async (customerId) => {
-  try {
-    const paymentMethods = await stripe.paymentMethods.list({
-      customer: customerId,
-      type: "card",
-    });
-    return paymentMethods.data; // Return the list of payment methods
-  } catch (error) {
-    console.error("Error retrieving payment methods:", error);
-    throw new Error("Failed to retrieve payment methods");
-  }
-};
+
 
 
 
@@ -326,7 +316,6 @@ module.exports = {
   refundAmount,
   hasPaymentMethod,
   attachPaymentMethodToCustomer,
-  getPaymentMethods,
   getBalanceTransactions,
   getAdminBalance
 }

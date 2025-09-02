@@ -17,7 +17,7 @@ const ChatRoomService = require("./service/chatService");
 const jwt = require("jsonwebtoken");
 const stripe = require("stripe");// ← You need this
 const stripeInstance = stripe(process.env.STRIPE_KEY);
-const { handlePaymentIntentSucceeded, handlePaymentIntentPaymentFailed } = require("./utils/paymentStatus")
+const { handlePaymentIntentSucceeded, handlePaymentIntentPaymentFailed, handleSetupIntentPaymentSucceeded } = require("./utils/paymentStatus")
 const morgan = require('morgan');
 
 
@@ -52,6 +52,11 @@ app.post(
         case "payment_intent.payment_failed":
           const paymentIntentPaymentFailed = event.data.object;
           await handlePaymentIntentPaymentFailed(paymentIntentPaymentFailed);
+          break;
+
+        case "setup_intent.succeeded":
+          const setupIntentPaymentSucceeded = event.data.object;
+          await handleSetupIntentPaymentSucceeded(setupIntentPaymentSucceeded);
           break;
 
         default:
