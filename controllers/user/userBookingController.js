@@ -136,6 +136,8 @@ const createBookingAndPayment = async (req, res, next) => {
       clientSecret: paymentIntent.client_secret,
     };
 
+    const nowUtc = new Date();
+
     // 7. Create the booking
 
     const booking = await prisma.booking.create({

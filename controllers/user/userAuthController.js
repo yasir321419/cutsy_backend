@@ -348,6 +348,9 @@ const editProfile = async (req, res, next) => {
   try {
     const { id } = req.user;
     const { firstName, lastName, phoneNumber, gender } = req.body;
+
+    console.log(req.body);
+
     const file = req.file;
 
     console.log(file, 'file');

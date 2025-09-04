@@ -7,18 +7,16 @@ const showUserUpComingAppoinment = async (req, res, next) => {
   try {
     const { id } = req.user;
 
-    // Extract the current time in "HH:mm" format
-    const currentTime = new Date().toISOString().slice(11, 16); // "HH:mm" format
+    const nowUtc = new Date();
 
-    console.log(currentTime, 'current time');  // Logs current time for debugging
+    console.log(nowUtc);
+
 
     const upcomingAppointment = await prisma.booking.findMany({
       where: {
         userId: id,
         status: "PENDING",
-        startTime: {
-          gt: currentTime,  // Compare the start time stored in the DB with the current time
-        },
+        createdAt: { lt: nowUtc },
       },
       include: {
         barber: true,
@@ -75,7 +73,9 @@ const showUserPastAppoinment = async (req, res, next) => {
   try {
     const { id } = req.user;
 
-    const currentTime = new Date().toISOString().slice(11, 16); // "HH:mm" format
+    const nowUtc = new Date();
+
+    console.log(nowUtc);
 
 
     const pastappoinment = await prisma.booking.findMany({
@@ -84,9 +84,7 @@ const showUserPastAppoinment = async (req, res, next) => {
         status: {
           in: ["CANCELLED", "COMPLETED", "PAID"]
         },
-        startTime: {
-          lt: currentTime
-        }
+        startAt: { lt: nowUtc },
       },
       include: {
         barber: true,

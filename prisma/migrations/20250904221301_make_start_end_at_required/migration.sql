@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `Booking` ADD COLUMN `endAt` DATETIME(3) NULL,
+    ADD COLUMN `startAt` DATETIME(3) NULL;
