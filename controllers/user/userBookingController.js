@@ -2,6 +2,7 @@ const prisma = require("../../config/prismaConfig");
 const { bookingConstants } = require("../../constant/constant");
 const { ValidationError, NotFoundError, BadRequestError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
+const computeStartEndUTC = require("../../utils/getnextdateforday");
 const sendNotification = require("../../utils/notification");
 const { createPaymentIntent } = require("../../utils/stripeApis");
 require("dotenv").config();
@@ -136,7 +137,18 @@ const createBookingAndPayment = async (req, res, next) => {
       clientSecret: paymentIntent.client_secret,
     };
 
-    const nowUtc = new Date();
+
+
+    const { startUTC, endUTC } = computeStartEndUTC({
+      dayStr: day,
+      startHHmm: startTime,
+      endHHmm: endTime,
+      lat: locationLat,
+      lng: locationLng,
+    });
+
+
+
 
     // 7. Create the booking
 
@@ -145,8 +157,8 @@ const createBookingAndPayment = async (req, res, next) => {
         userId: id,
         barberId: findbarber.id,
         day,
-        startTime,
-        endTime,
+        startTime: startUTC,
+        endTime: endUTC,
         amount: amountAsFloat,
         locationName,
         locationLat,

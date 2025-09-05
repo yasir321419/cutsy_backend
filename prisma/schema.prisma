@@ -407,8 +407,8 @@ model Booking {
   userId            String
   barberId          String
   day     String
-  startTime        String
-  endTime         String
+  startTime        DateTime 
+  endTime         DateTime 
   amount            Float
   locationName      String
   locationLat       Float
