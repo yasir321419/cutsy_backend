@@ -6,14 +6,14 @@ const showBarberUpComingAppoinment = async (req, res, next) => {
   try {
     const { id } = req.user;
 
-    const currentTime = new Date().toISOString().slice(11, 16); // "HH:mm" format
+    const nowUtc = new Date();
 
     const upcomingappoinment = await prisma.booking.findMany({
       where: {
         barberId: id,
         status: "PENDING",
         startTime: {
-          gt: currentTime
+          gt: nowUtc
         }
       },
       include: {
@@ -37,7 +37,7 @@ const showBarberOnGoingAppoinment = async (req, res, next) => {
   try {
     const { id } = req.user;
 
-    const currentTime = new Date().toISOString().slice(11, 16); // "HH:mm" format
+    const nowUtc = new Date();
 
 
     const ongoingappoinment = await prisma.booking.findMany({
@@ -46,9 +46,8 @@ const showBarberOnGoingAppoinment = async (req, res, next) => {
         status: {
           in: ["ACCEPTED", "ARRIVED"]
         },
-        startTime: {
-          lte: currentTime
-        }
+        startTime: { lte: nowUtc },     // started
+        endTime: { gt: nowUtc },
       },
       include: {
         user: true,
@@ -71,7 +70,7 @@ const showBarberPastAppoinment = async (req, res, next) => {
   try {
     const { id } = req.user;
 
-    const currentTime = new Date().toISOString().slice(11, 16); // "HH:mm" format
+    const nowUtc = new Date();
 
     const pastappoinment = await prisma.booking.findMany({
       where: {
@@ -79,9 +78,8 @@ const showBarberPastAppoinment = async (req, res, next) => {
         status: {
           in: ["CANCELLED", "COMPLETED", "PAID"]
         },
-        startTime: {
-          lt: currentTime
-        }
+        endTime: { lt: nowUtc },
+
       },
       include: {
         user: true,
