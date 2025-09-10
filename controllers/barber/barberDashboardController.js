@@ -5,16 +5,16 @@ const { handlerOk } = require("../../handler/resHandler");
 const showLatestUpcomingAppoinment = async (req, res, next) => {
   try {
     const { id } = req.user;
-    const currentTime = new Date().toISOString().slice(11, 16); // "HH:mm" format
+    const nowUtc = new Date();
 
-    console.log(currentTime, 'time');
+    console.log(nowUtc, 'time');
 
     const latestupcomingappoinment = await prisma.booking.findFirst({
       where: {
         barberId: id,
         status: "PENDING",
         startTime: {
-          gt: currentTime,  // Compare the start time stored in the DB with the current time
+          gt: nowUtc,  // Compare the start time stored in the DB with the current time
         },
       },
       include: {
@@ -49,7 +49,7 @@ const showAllUpcomingAppoinments = async (req, res, next) => {
 
   try {
     const { id } = req.user;
-    const currentTime = new Date().toISOString().slice(11, 16); // "HH:mm" format
+    const nowUtc = new Date();
 
 
     const upcomingappoinments = await prisma.booking.findMany({
@@ -57,7 +57,7 @@ const showAllUpcomingAppoinments = async (req, res, next) => {
         barberId: id,
         status: "PENDING",
         startTime: {
-          gt: currentTime,  // Compare the start time stored in the DB with the current time
+          gt: nowUtc,  // Compare the start time stored in the DB with the current time
         },
       },
       include: {
