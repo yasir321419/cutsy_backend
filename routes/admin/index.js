@@ -1,5 +1,5 @@
 const adminRouter = require("express").Router();
-const adminAuthRouter = require("./adminauth");
+const adminAuthRouter = require("./adminAuth");
 const adminHairRouter = require("./adminHairTypeLength");
 const adminExperienceRouter = require("./adminExperience");
 const adminBarberServiceRouter = require("./adminBarberService");
