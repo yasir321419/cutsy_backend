@@ -159,6 +159,6 @@ io.on("connection", (socket) => {
 //   console.log(`Server is running at http://localhost:${port}`);
 // });
 
-server.listen(port, '127.0.0.1', () => {
+server.listen(port, '0.0.0.0', () => {
   console.log(`server is running at ${port}`);
 });
