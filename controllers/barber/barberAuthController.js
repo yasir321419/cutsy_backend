@@ -9,6 +9,10 @@ const { hashPassword, comparePassword } = require("../../utils/passwordHashed");
 const sendEmails = require("../../utils/sendEmail");
 const { createConnectedAccount, verifyConnectedAccount } = require("../../utils/stripeApis");
 const generateOtpExpiry = require("../../utils/verifyOtp");
+const { v4: uuidv4 } = require('uuid');
+const path = require("path");
+const uploadFileWithFolder = require("../../utils/s3Upload");
+
 
 const singUp = async (req, res, next) => {
   try {
@@ -339,10 +343,18 @@ const editProfile = async (req, res, next) => {
     const updateObj = {};
 
     if (file) {
-      const filePath = file.filename; // use filename instead of path
-      const basePath = `http://${req.get("host")}/public/uploads/`;
-      const image = `${basePath}${filePath}`;
-      updateObj.image = image;
+      // const filePath = file.filename; // use filename instead of path
+      // const basePath = `http://${req.get("host")}/public/uploads/`;
+      // const image = `${basePath}${filePath}`;
+      // updateObj.image = image;
+
+      const fileBuffer = file.buffer;
+      const folder = 'uploads';
+      const filename = `${uuidv4()}-${Date.now()}${path.extname(file.originalname)}`;
+      const contentType = file.mimetype || 'application/octet-stream';
+
+      const s3ImageUrl = await uploadFileWithFolder(fileBuffer, filename, contentType, folder);
+      updateObj.image = s3ImageUrl;
     }
 
     if (name) {

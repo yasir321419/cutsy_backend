@@ -2,6 +2,9 @@ const prisma = require("../../config/prismaConfig");
 const { ValidationError, ConflictError, NotFoundError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
 const sendNotification = require("../../utils/notification");
+const uploadFileWithFolder = require("../../utils/s3Upload");
+const { v4: uuidv4 } = require('uuid');
+const path = require("path");
 
 const addAvailableHour = async (req, res, next) => {
   try {
@@ -80,13 +83,20 @@ const barberSubmitDocument = async (req, res, next) => {
     console.log(file, 'file');
 
 
-    const filePath = file.filename; // use filename instead of path
-    const basePath = `http://${req.get("host")}/public/uploads/`;
-    const document = `${basePath}${filePath}`;
+    // const filePath = file.filename; // use filename instead of path
+    // const basePath = `http://${req.get("host")}/public/uploads/`;
+    // const document = `${basePath}${filePath}`;
+
+    const fileBuffer = file.buffer;
+    const folder = 'uploads';
+    const filename = `${uuidv4()}-${Date.now()}${path.extname(file.originalname)}`;
+    const contentType = file.mimetype || 'application/octet-stream';
+
+    const s3ImageUrl = await uploadFileWithFolder(fileBuffer, filename, contentType, folder);
 
     const submitdocument = await prisma.barberDocument.create({
       data: {
-        document,
+        document: s3ImageUrl,
         createdById: id
       }
     });

@@ -1,6 +1,8 @@
-require("dotenv").config();
+
 const { S3Client } = require("@aws-sdk/client-s3");
-const { PutObjectCommand } = require("@aws-sdk/client-s3");
+const { Upload } = require("@aws-sdk/lib-storage");
+const streamifier = require('streamifier');
+
 const s3 = new S3Client({
   credentials: {
     accessKeyId: process.env.ACCESS_KEY_ID,
@@ -10,16 +12,27 @@ const s3 = new S3Client({
 });
 
 const uploadFileWithFolder = async (buffer, filename, contentType, folder) => {
-  try {
-    const command = new PutObjectCommand({
-      Bucket: process.env.BUCKET_NAME,
-      Key: `${folder}/${filename}`,
-      ContentType: contentType,
-      Body: buffer,
-    });
+  if (!Buffer.isBuffer(buffer)) {
+    throw new Error('Provided file is not a valid Buffer');
+  }
 
-    await s3.send(command);
-    return `${process.env.S3_ACCESS_URL}/${folder}/${filename}`;
+  const bufferStream = streamifier.createReadStream(buffer);
+
+  const uploadParams = {
+    Bucket: process.env.BUCKET_NAME,
+    Key: `${folder}/${filename}`,
+    Body: bufferStream,
+    ContentType: contentType,
+  };
+
+  const upload = new Upload({
+    client: s3,
+    params: uploadParams,
+  });
+
+  try {
+    const result = await upload.done();
+    return `https://${process.env.BUCKET_NAME}.s3.${process.env.BUCKET_REGION}.amazonaws.com/${folder}/${filename}`;
   } catch (error) {
     console.error("Upload Error:", error);
     throw new Error(error.message);
@@ -27,3 +40,4 @@ const uploadFileWithFolder = async (buffer, filename, contentType, folder) => {
 };
 
 module.exports = uploadFileWithFolder;
+
