@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const prisma = require("../../config/prismaConfig");
 const { bookingConstants } = require("../../constant/constant");
 const { ValidationError, NotFoundError, BadRequestError } = require("../../handler/CustomError");
@@ -5,7 +7,6 @@ const { handlerOk } = require("../../handler/resHandler");
 const computeStartEndUTC = require("../../utils/getnextdateforday");
 const sendNotification = require("../../utils/notification");
 const { createPaymentIntent } = require("../../utils/stripeApis");
-require("dotenv").config();
 const stripe = require("stripe")(process.env.STRIPE_KEY);
 
 
