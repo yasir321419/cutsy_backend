@@ -76,48 +76,65 @@ const showAvailableHour = async (req, res, next) => {
   }
 }
 
+
 const barberSubmitDocument = async (req, res, next) => {
   try {
-    const file = req.file;
     const { id, name, deviceToken } = req.user;
-    console.log(file, 'file');
 
+    // Multer .fields() → files are in req.files
+    const dlFile = req.files?.drivingLicence?.[0];
+    const certFile = req.files?.certificate?.[0];
 
-    // const filePath = file.filename; // use filename instead of path
-    // const basePath = `http://${req.get("host")}/public/uploads/`;
-    // const document = `${basePath}${filePath}`;
+    let dlUrl = null;
+    let certUrl = null;
+    const folder = "uploads";
 
-    const fileBuffer = file.buffer;
-    const folder = 'uploads';
-    const filename = `${uuidv4()}-${Date.now()}${path.extname(file.originalname)}`;
-    const contentType = file.mimetype || 'application/octet-stream';
+    if (dlFile) {
+      const filename = `${uuidv4()}-${Date.now()}${path.extname(dlFile.originalname)}`;
+      dlUrl = await uploadFileWithFolder(
+        dlFile.buffer,
+        filename,
+        dlFile.mimetype || "application/octet-stream",
+        folder
+      );
+    }
 
-    const s3ImageUrl = await uploadFileWithFolder(fileBuffer, filename, contentType, folder);
+    if (certFile) {
+      const filename = `${uuidv4()}-${Date.now()}${path.extname(certFile.originalname)}`;
+      certUrl = await uploadFileWithFolder(
+        certFile.buffer,
+        filename,
+        certFile.mimetype || "application/octet-stream",
+        folder
+      );
+    }
+
+    if (!dlUrl && !certUrl) {
+      throw new ValidationError("At least one document must be uploaded");
+    }
 
     const submitdocument = await prisma.barberDocument.create({
       data: {
-        document: s3ImageUrl,
-        createdById: id
-      }
+        drivingLicence: dlUrl,
+        certificate: certUrl,
+        createdById: id,
+      },
     });
 
-    if (!submitdocument) {
-      throw new ValidationError("document not submit");
-    }
+    handlerOk(res, 200, submitdocument, "document submitted successfully");
 
+    // Optional: notification
     // await sendNotification(
     //   id,
     //   deviceToken,
     //   `Hi ${name}, your documents have been successfully added to your profile.`
     // );
 
-
-    handlerOk(res, 200, submitdocument, "document submitted successfully")
-
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
+
 
 module.exports = {
   addAvailableHour,

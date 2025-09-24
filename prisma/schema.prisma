@@ -302,8 +302,8 @@ model BarberAvailableHour{
 
 model BarberDocument{
   id             String      @id @default(uuid())
-  document       String
-
+  drivingLicence       String?
+  certificate       String?
   createdById  String
   createdBy    Barber     @relation(fields: [createdById], references: [id])
 

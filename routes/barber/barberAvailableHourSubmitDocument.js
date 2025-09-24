@@ -30,8 +30,12 @@ barberAvailableHourRouter.post(
   "/barberSubmitDocument",
   limiter,
   verifyBarberToken,
-  handleMultiPartData.single("document"),
-  isFileExists("document is required"),
+  handleMultiPartData.fields([
+    { name: "drivingLicence", maxCount: 1 },
+    { name: "certificate", maxCount: 1 },
+  ]),
+  isFileExists(["drivingLicence", "certificate"], "Documents are required"),
+
   barberAvilableHourController.barberSubmitDocument
 );
 
