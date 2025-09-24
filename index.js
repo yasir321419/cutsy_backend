@@ -87,7 +87,7 @@ app.use(morgan('dev'));
 app.use(globalErrorMiddleware);
 
 app.get("/", (req, res) => {
-  res.send("server is running..");
+  res.send("server is running.....!!!");
 });
 
 app.get("/health", (req, res) => {
