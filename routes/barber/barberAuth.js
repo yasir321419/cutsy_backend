@@ -101,6 +101,13 @@ barberAuthRouter.post(
   barberAuthController.resendOtp
 );
 
+barberAuthRouter.get(
+  "/getMe",
+  limiter,
+  verifyBarberToken,
+  barberAuthController.getMe
+);
+
 
 
 module.exports = barberAuthRouter;

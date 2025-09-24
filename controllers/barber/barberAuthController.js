@@ -654,6 +654,39 @@ const barberCreateProfile = async (req, res, next) => {
   }
 }
 
+const getMe = async (req, res, next) => {
+  try {
+    const { id } = req.user;
+
+    const barber = await prisma.barber.findUnique({
+      where: {
+        id: id
+      },
+      include: {
+        selectedHairType: true,
+        selectedHairLength: true,
+        barberExperience: true,
+        BarberAvailableHour: true,
+        Review: true,
+        BarberService: {
+          include: {
+            serviceCategory: true
+          }
+        }
+      }
+    });
+
+    if (!barber) {
+      throw new NotFoundError("barber not found")
+    }
+
+    handlerOk(res, 200, barber, "barber found successfully");
+
+  } catch (error) {
+    next(error)
+  }
+}
+
 module.exports = {
   singUp,
   verifyOtp,
@@ -666,5 +699,6 @@ module.exports = {
   deleteAccount,
   socailLogin,
   barberCreateProfile,
-  resendOtp
+  resendOtp,
+  getMe
 }
