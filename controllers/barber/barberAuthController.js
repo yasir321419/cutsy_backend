@@ -637,11 +637,24 @@ const barberCreateProfile = async (req, res, next) => {
       }
     });
 
-    await prisma.barberWallet.create({
-      data: {
-        barberId: savebarber.id
+
+    // Check if the BarberWallet already exists
+    const existingWallet = await prisma.barberWallet.findUnique({
+      where: {
+        barberId: savebarber.id,
       }
-    })
+    });
+
+    // If no wallet exists, create a new one
+    if (!existingWallet) {
+      await prisma.barberWallet.create({
+        data: {
+          barberId: savebarber.id
+        }
+      });
+    } else {
+      console.log("Barber wallet already exists, skipping creation.");
+    }
 
     const token = genToken({
       id: savebarber.id,
