@@ -2,6 +2,32 @@ const prisma = require("../../config/prismaConfig");
 const { NotFoundError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
 
+const onAndOffAvailableStatus = async (req, res, next) => {
+  try {
+    let { availableStatus, id } = req.user;
+
+    availableStatus = !availableStatus;
+
+    let message = availableStatus
+      ? "availableStatus On Successfully"
+      : "availableStatus Off Successfully";
+
+    await prisma.barber.update({
+      where: {
+        id: id
+      },
+      data: {
+        availableStatus: availableStatus
+      }
+    })
+
+    handlerOk(res, 200, null, message)
+
+  } catch (error) {
+    next(error)
+  }
+}
+
 const showLatestUpcomingAppoinment = async (req, res, next) => {
   try {
     const { id } = req.user;
@@ -203,5 +229,6 @@ const showAllStats = async (req, res, next) => {
 module.exports = {
   showLatestUpcomingAppoinment,
   showAllUpcomingAppoinments,
-  showAllStats
+  showAllStats,
+  onAndOffAvailableStatus
 }

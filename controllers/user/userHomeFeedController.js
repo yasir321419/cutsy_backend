@@ -30,7 +30,8 @@ const showNearestBarbers = async (req, res, next) => {
       where: {
         id: {
           in: barberIds
-        }
+        },
+        availableStatus: true
       },
 
       include: {
@@ -69,7 +70,8 @@ const showBarbersBySearchService = async (req, res, next) => {
               }
             }
           }
-        }
+        },
+        availableStatus: true
       },
       include: {
         BarberService: {
@@ -191,6 +193,9 @@ const showTrendingBarbers = async (req, res, next) => {
   try {
 
     const showallbarber = await prisma.barber.findMany({
+      where: {
+        availableStatus: true
+      },
       include: {
 
         BarberService: {

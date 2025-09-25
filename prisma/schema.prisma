@@ -249,7 +249,8 @@ model Barber{
   country             String?
   postalCode          String?
   bio                 String?
-  experience          String?  
+  experience          String? 
+  availableStatus          Boolean?   
   userType             userType?
   deviceType             deviceType?
   deviceToken            String?

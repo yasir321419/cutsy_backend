@@ -28,6 +28,13 @@ barberDashboardRouter.get(
   barberDashboardController.showAllStats
 );
 
+barberDashboardRouter.patch(
+  "/onAndOffAvailableStatus",
+  limiter,
+  verifyBarberToken,
+  barberDashboardController.onAndOffAvailableStatus
+);
+
 
 
 module.exports = barberDashboardRouter
