@@ -22,6 +22,10 @@ const { handlePaymentIntentSucceeded, handlePaymentIntentPaymentFailed, handleSe
 const morgan = require('morgan');
 
 
+app.use(morgan('dev'));
+
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+
 app.use(cors());
 app.use('/public', express.static('public'));
 
@@ -80,7 +84,6 @@ app.set('io', io);
 
 app.use(API_PRIFEX, rootRouter);
 
-app.use(morgan('dev'));
 
 
 // Global error handling
