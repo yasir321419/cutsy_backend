@@ -693,7 +693,17 @@ const getMe = async (req, res, next) => {
       throw new NotFoundError("barber not found")
     }
 
-    handlerOk(res, 200, barber, "barber found successfully");
+    // Calculate the average rating and total number of reviews
+    const totalReviews = barber.Review.length;
+    const averageRating = totalReviews > 0 ?
+      barber.Review.reduce((sum, review) => sum + review.rating, 0) / totalReviews : 0;
+
+    const response = {
+      averageRating: averageRating,
+      totalReviews: totalReviews
+    }
+
+    handlerOk(res, 200, { ...barber, ...response }, "barber found successfully");
 
   } catch (error) {
     next(error)
