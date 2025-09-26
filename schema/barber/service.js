@@ -10,8 +10,18 @@ const addBarberServiceSchema = Joi.object({
   }),
 });
 
+const deleteBarberServiceSchema = Joi.object({
+  query: Joi.object({}),
+  params: Joi.object({
+    serviceId: Joi.string().required(),
+  }),
+  body: Joi.object({
+  }),
+});
+
 
 
 module.exports = {
   addBarberServiceSchema,
+  deleteBarberServiceSchema
 }

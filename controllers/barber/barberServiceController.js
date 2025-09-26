@@ -127,8 +127,26 @@ const editService = async (req, res, next) => {
   }
 }
 
+const deleteService = async (req, res, next) => {
+  try {
+    const { serviceId } = req.params;
+
+    const findbarberservice = await prisma.barberService.findUnique({
+      id: serviceId,
+    });
+
+    if (!findbarberservice) {
+      throw new NotFoundError("barber service not found")
+    }
+  } catch (error) {
+    next(error)
+  }
+}
+
 module.exports = {
   addServices,
   showServices,
-  editService
+  editService,
+  deleteService
+
 }

@@ -5,7 +5,7 @@ const validateRequest = require("../../middleware/validateRequest");
 const barberAvailableHourRouter = require("express").Router();
 const barberAvilableHourController = require("../../controllers/barber/barberAvailableHourAndSubmitDocumentController");
 const { verifyBarberToken } = require("../../middleware/auth");
-const { addBarberAvailableHourSchema } = require("../../schema/barber/availblehour");
+const { addBarberAvailableHourSchema, editBarberAvailableHourSchema, deleteBarberAvailableHourSchema } = require("../../schema/barber/availblehour");
 const handleMultiPartData = require("../../middleware/handleMultiPartData");
 const isFileExists = require("../../middleware/isFileExist");
 
@@ -24,6 +24,22 @@ barberAvailableHourRouter.get(
   limiter,
   verifyBarberToken,
   barberAvilableHourController.showAvailableHour
+);
+
+barberAvailableHourRouter.put(
+  "/editAvailableHour/:availableHoursId",
+  limiter,
+  verifyBarberToken,
+  validateRequest(editBarberAvailableHourSchema),
+  barberAvilableHourController.editAvailableHour
+);
+
+barberAvailableHourRouter.delete(
+  "/deleteAvailableHour/:availableHoursId",
+  limiter,
+  verifyBarberToken,
+  validateRequest(deleteBarberAvailableHourSchema),
+  barberAvilableHourController.deleteAvailableHour
 );
 
 barberAvailableHourRouter.post(

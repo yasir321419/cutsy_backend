@@ -76,6 +76,77 @@ const showAvailableHour = async (req, res, next) => {
   }
 }
 
+const editAvailableHour = async (req, res, next) => {
+  try {
+    const { id } = req.user;
+    const { availableHoursId } = req.params;
+    const { starttime, endtime, day } = req.body;
+
+    const findavailablehours = await prisma.barberAvailableHour.findUnique({
+      where: {
+        id: availableHoursId
+      }
+    });
+
+    if (!findavailablehours) {
+      throw new NotFoundError("available hours not found")
+    }
+
+    const updateavailableHours = await prisma.barberAvailableHour.update({
+      where: {
+        id: findavailablehours.id,
+        createdById: id
+      },
+      data: {
+        startTime: starttime,
+        endTime: endtime,
+        day: day
+      }
+    });
+
+    if (!updateavailableHours) {
+      throw new ValidationError("available hours not update")
+    }
+
+    handlerOk(res, 200, updateavailableHours, "available hours updated successfully");
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+const deleteAvailableHour = async (req, res, next) => {
+  try {
+    const { id } = req.user;
+    const { availableHoursId } = req.params;
+
+    const findavailablehours = await prisma.barberAvailableHour.findUnique({
+      where: {
+        id: availableHoursId
+      }
+    });
+
+    if (!findavailablehours) {
+      throw new NotFoundError("available hours not found")
+    }
+
+    const deleteavailableHours = await prisma.barberAvailableHour.delete({
+      where: {
+        id: findavailablehours.id,
+        createdById: id
+      }
+    });
+
+    if (!deleteavailableHours) {
+      throw new ValidationError("available hours not delete")
+    }
+
+    handlerOk(res, 200, null, "available hours deleted successfully");
+
+  } catch (error) {
+    next(error)
+  }
+}
 
 const barberSubmitDocument = async (req, res, next) => {
   try {
@@ -139,5 +210,7 @@ const barberSubmitDocument = async (req, res, next) => {
 module.exports = {
   addAvailableHour,
   showAvailableHour,
-  barberSubmitDocument
+  barberSubmitDocument,
+  editAvailableHour,
+  deleteAvailableHour
 }
