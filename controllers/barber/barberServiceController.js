@@ -132,12 +132,22 @@ const deleteService = async (req, res, next) => {
     const { serviceId } = req.params;
 
     const findbarberservice = await prisma.barberService.findUnique({
-      id: serviceId,
+      where: {
+        id: serviceId,
+      }
     });
 
     if (!findbarberservice) {
       throw new NotFoundError("barber service not found")
     }
+
+    await prisma.barberService.delete({
+      where: {
+        id: findbarberservice.id
+      }
+    });
+
+    handlerOk(res, 200, null, "barber service delete succesfully")
   } catch (error) {
     next(error)
   }
