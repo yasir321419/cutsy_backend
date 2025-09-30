@@ -10,26 +10,26 @@ const { userNotificationReadSchema, userAllNotificationSchema } = require("../..
 
 
 userNotificationRouter.get(
-  "/showAllNotification",
+  "/showAllUserNotification",
   limiter,
   verifyUserToken,
   validateRequest(userAllNotificationSchema),
-  userNotificationController.showAllNotification
+  userNotificationController.showAllUserNotification
 );
 
 userNotificationRouter.put(
-  "/readNotification/:notificationId",
+  "/readUserNotification/:notificationId",
   limiter,
   verifyUserToken,
   validateRequest(userNotificationReadSchema),
-  userNotificationController.readNotification
+  userNotificationController.readUserNotification
 );
 
 userNotificationRouter.put(
-  "/onAndOffNotification",
+  "/onAndOffUserNotification",
   limiter,
   verifyUserToken,
-  userNotificationController.onAndOffNotification
+  userNotificationController.onAndOffUserNotification
 );
 
 module.exports = userNotificationRouter;

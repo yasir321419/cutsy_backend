@@ -10,249 +10,211 @@ const { createPaymentIntent } = require("../../utils/stripeApis");
 const stripe = require("stripe")(process.env.STRIPE_KEY);
 
 
+// ==== Helpers ====
+function normalizeDay(d) {
+  const map = {
+    sun: "SUN", sunday: "SUN",
+    mon: "MON", monday: "MON",
+    tue: "TUE", tuesday: "TUE",
+    wed: "WED", wednesday: "WED",
+    thu: "THU", thursday: "THU",
+    fri: "FRI", friday: "FRI",
+    sat: "SAT", saturday: "SAT",
+  };
+  const key = String(d || "").trim().toLowerCase();
+  return map[key] || key.toUpperCase();
+}
+
+// Parse "hh:mm am/pm" OR "HH:mm" -> minutes since midnight (0..1439)
+function parseTimeToMinutes(str) {
+  if (!str) throw new BadRequestError("Time string is required");
+  const s = String(str).trim().toLowerCase();
+
+  let m = s.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
+  if (m) {
+    let h = parseInt(m[1], 10);
+    const min = parseInt(m[2], 10);
+    const period = m[3];
+    if (Number.isNaN(h) || Number.isNaN(min)) {
+      throw new BadRequestError(`Invalid time numbers: ${str}`);
+    }
+    if (h === 12) h = 0;        // 12:xx am => 00:xx
+    if (period === "pm") h += 12;
+    return h * 60 + min;
+  }
+
+  m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (m) {
+    const h = parseInt(m[1], 10);
+    const min = parseInt(m[2], 10);
+    if (Number.isNaN(h) || Number.isNaN(min)) {
+      throw new BadRequestError(`Invalid time numbers: ${str}`);
+    }
+    return h * 60 + min;
+  }
+
+  throw new BadRequestError(`Invalid time format: ${str}`);
+}
+
+// Convert minutes (0..1439) -> "HH:mm" 24h string
+function minutesToHHmm(mins) {
+  if (!Number.isFinite(mins)) throw new BadRequestError("Time minutes must be a finite number");
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const HH = String(h).padStart(2, "0");
+  const MM = String(m).padStart(2, "0");
+  return `${HH}:${MM}`;
+}
+
 const createBookingAndPayment = async (req, res, next) => {
   try {
-    const { barberId, day, startTime, endTime, amount, locationName, locationLat, locationLng, services,
+    const {
+      barberId,
+      day,
+      startTime, // e.g. "04:00 am"
+      endTime,   // e.g. "02:00 pm"
+      locationName,
+      locationLat,
+      locationLng,
+      services = [],
     } = req.body;
-    const { id, deviceToken, firstName, customerId } = req.user;
 
+    const { id: userId, firstName } = req.user || {};
 
-    // Ensure amount is a number (Float)
-
-    const amountAsFloat = parseFloat(amount);
-    if (isNaN(amountAsFloat)) {
-      throw new BadRequestError("Invalid amount provided");
+    // ---------- Validation ----------
+    if (!barberId) throw new BadRequestError("barberId is required");
+    if (!day) throw new BadRequestError("day is required");
+    if (!startTime || !endTime) throw new BadRequestError("startTime and endTime are required");
+    if (!Array.isArray(services) || services.length === 0) {
+      throw new BadRequestError("At least one service is required");
     }
 
-    // 1. Find the barber
+    // Coerce and validate lat/lng as numbers
+    const latNum = locationLat !== undefined ? Number(locationLat) : undefined;
+    const lngNum = locationLng !== undefined ? Number(locationLng) : undefined;
+    if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
+      throw new BadRequestError("locationLat and locationLng must be valid numbers");
+    }
 
+    const normalizedDay = normalizeDay(day);
+    const requestedStartMins = parseTimeToMinutes(startTime); // handles am/pm
+    const requestedEndMins = parseTimeToMinutes(endTime);
+    if (requestedEndMins <= requestedStartMins) {
+      // (If you need overnight support, we can extend logic here.)
+      throw new BadRequestError("End time must be after start time.");
+    }
+
+    // ---------- 1) Find barber ----------
     const findbarber = await prisma.barber.findUnique({
-      where: {
-        id: barberId,
-      },
+      where: { id: barberId },
       include: {
-        BarberAvailableHour: true, // Barber's available hours
-        BarberService: true, // Barber's services
-      }
+        BarberAvailableHour: true,
+        BarberService: true,
+      },
     });
+    if (!findbarber) throw new NotFoundError("Barber not found");
 
-    if (!findbarber) {
-      throw new NotFoundError("Barber not found");
-    }
-
-    // 2. Normalize the times for comparison
-
-    const normalizeTime = (timeString) => {
-      const [hour, minute] = timeString.split(':');
-      return parseInt(hour) * 60 + parseInt(minute); // Convert to minutes
-    };
-
-    const normalizedStartTime = normalizeTime(startTime);
-    const normalizedEndTime = normalizeTime(endTime);
-
-    // 3. Check if the barber is available at the selected time (startTime, endTime, and day)
-
-    const isAvailable = findbarber.BarberAvailableHour.some(hour => {
-      const normalizedBarberStartTime = normalizeTime(hour.startTime);
-      const normalizedBarberEndTime = normalizeTime(hour.endTime);
-      return hour.day.toLowerCase() === day.toLowerCase() &&
-        normalizedBarberStartTime <= normalizedStartTime &&
-        normalizedBarberEndTime >= normalizedEndTime;
+    // ---------- 2) Availability check ----------
+    const isAvailable = findbarber.BarberAvailableHour.some((slot) => {
+      if (normalizeDay(slot.day) !== normalizedDay) return false;
+      const slotStart = parseTimeToMinutes(slot.startTime);
+      const slotEnd = parseTimeToMinutes(slot.endTime);
+      return slotStart <= requestedStartMins && requestedEndMins <= slotEnd;
     });
-
     if (!isAvailable) {
       throw new BadRequestError("Barber is not available at the selected time.");
     }
 
-    // 4. Check if the selected service exists in BarberService
+    // ---------- 3) Services check ----------
+    const serviceIndex = new Map(findbarber.BarberService.map((s) => [s.id, s]));
+    const selectedService = services
+      .map((sid) => serviceIndex.get(sid))
+      .filter(Boolean);
+    // If you want to enforce strict matching:
+    // if (selectedService.length !== services.length) {
+    //   throw new NotFoundError("One or more selected services are not offered by this barber.");
+    // }
 
-    const selectedService = findbarber.BarberService.filter(service => services.includes(service.id));
+    // ---------- 4) Compute UTC times ----------
+    // IMPORTANT: convert to "HH:mm" 24h BEFORE calling your helper
+    const startHHmm24 = minutesToHHmm(requestedStartMins); // e.g., 240 -> "04:00"
+    const endHHmm24 = minutesToHHmm(requestedEndMins);   // e.g., 840 -> "14:00"
 
-    if (!selectedService) {
-      throw new NotFoundError("Service does not exist for this barber.");
+    let startUTC, endUTC;
+    try {
+      ({ startUTC, endUTC } = computeStartEndUTC({
+        dayStr: normalizedDay,
+        startHHmm: startHHmm24,   // now 24h string your helper likely expects
+        endHHmm: endHHmm24,
+        lat: latNum,
+        lng: lngNum,
+      }));
+    } catch (e) {
+      // Many timezone/date libraries throw vague errors when they get NaN.
+      throw new ValidationError(`Failed to compute UTC times: ${e?.message || e}`);
+    }
+    if (!startUTC || !endUTC) {
+      throw new ValidationError("Failed to compute UTC times (empty result).");
     }
 
-    // Parse & total prices
-    const servicePrices = selectedService.map(s => {
-      const n = parseFloat(s.price);
-      if (Number.isNaN(n)) throw new BadRequestError(`Invalid price on service ${s.id}`);
-      return n;
+    // ---------- 5) Overlap check ----------
+    const existing = await prisma.booking.findFirst({
+      where: {
+        barberId: findbarber.id,
+        day: normalizedDay,
+        startTime: { lt: endUTC },
+        endTime: { gt: startUTC },
+      },
+      select: { id: true },
     });
-    const totalPrice = parseFloat(servicePrices.reduce((a, b) => a + b, 0).toFixed(2));
-
-    // Compare client amount vs computed total (use cents to avoid float issues)
-    const toCents = n => Math.round(n * 100);
-
-    // --- NEW: Fees check & early return if user sent subtotal (no fees) ---
-    const feePct = 0.029;
-    const feeFixed = 0.30;
-
-    const subtotal = totalPrice; // services sum
-    const fees = parseFloat((subtotal * feePct + feeFixed).toFixed(2));
-    const totalAmountWithFees = parseFloat((subtotal + fees).toFixed(2));
-
-    // If user sent only subtotal (e.g., 200) and not total with fees (e.g., 206.10)
-    const userProvidedSubtotalOnly = toCents(amountAsFloat) === toCents(subtotal);
-
-
-    if (userProvidedSubtotalOnly && fees > 0) {
-      return handlerOk(
-        res,
-        422,
-        {
-          code: "AMOUNT_EXCLUDES_FEES",
-          feeNotice: {
-            message: `Heads up: a processing fee of $${fees.toFixed(2)} will be added. Your total is $${totalAmountWithFees.toFixed(2)}.`,
-            breakdown: {
-              subtotal: subtotal.toFixed(2),
-              fees: fees.toFixed(2),
-              total: totalAmountWithFees.toFixed(2),
-            },
-            suggestedAmount: totalAmountWithFees.toFixed(2),
-          }
-        },
-        "Amount excludes processing fees"
-      );
+    if (existing) {
+      throw new BadRequestError("Selected time conflicts with another booking.");
     }
 
-    // 6. Create the payment intent with the fee adjustments
-
-    const metadata = {
-      barberId: findbarber.id,
-      serviceId: selectedService.map(s => s.id).join(','),
-      userId: id,
-      startTime: startTime,
-      endTime: endTime,
-      amount: amountAsFloat,
-      totalAmount: totalAmountWithFees
-    };
-
-    const paymentIntent = await createPaymentIntent({
-      amount: Math.round(totalAmountWithFees * 100),  // Convert to cents
-      customer: customerId,  // Assuming user ID is the customer ID
-      metadata: metadata,  // Pass the metadata here
-    });
-
-    const paymentIntentRes = {
-      paymentIntentId: paymentIntent.id,
-      clientSecret: paymentIntent.client_secret,
-    };
-
-
-
-    const { startUTC, endUTC } = computeStartEndUTC({
-      dayStr: day,
-      startHHmm: startTime,
-      endHHmm: endTime,
-      lat: locationLat,
-      lng: locationLng,
-    });
-
-
-
-
-    // 7. Create the booking
-
+    // ---------- 6) Create booking ----------
     const booking = await prisma.booking.create({
       data: {
-        userId: id,
+        userId,
         barberId: findbarber.id,
-        day,
-        startTime: startUTC,
+        day: normalizedDay,
+        startTime: startUTC, // store as UTC datetime
         endTime: endUTC,
-        amount: amountAsFloat,
+        // amount: 0, // keep commented if schema allows null; or set a default
         locationName,
-        locationLat,
-        locationLng,
+        locationLat: latNum,
+        locationLng: lngNum,
         services: {
-          create: selectedService.map(s => ({
+          create: selectedService.map((s) => ({
             serviceCategory: { connect: { id: s.serviceCategoryId } },
-            price: parseFloat(s.price),
+            price: parseFloat(s.price), // Uncomment to persist price
           })),
         },
       },
       include: { services: true },
-
     });
 
-    if (!booking) {
-      throw new ValidationError("Booking creation failed");
-    }
+    if (!booking) throw new ValidationError("Booking creation failed");
 
-    // 8. Create the payment record in the database with the Stripe fees added
 
-    const payment = await prisma.payment.create({
+    await prisma.barberNotification.create({
       data: {
-        bookingId: booking.id,
-        amount: amountAsFloat,
-        totalAmount: totalAmountWithFees, // Store the total amount with fees
-        status: 'PENDING', // Set the initial payment status to PENDING
-        paymentIntentId: paymentIntent.id,
+        barberId: findbarber.id,       // the barber who should receive it
+        bookingId: booking.id,       // link to booking
+        title: "🎉 New Booking",
+        description: `${firstName} booked an appointment with you on ${day} at ${startTime} - ${endTime}.`,
       },
     });
 
-    if (!payment) {
-      throw new ValidationError("Payment creation failed");
-    }
-
-    // Send notifications
-    // await sendNotification(
-    //   id,
-    //   deviceToken,
-    //   `Hi ${firstName}, you've successfully booked an appointment with "${findbarber.name}"!`
-    // );
-
-    // await sendNotification(
-    //   id,
-    //   findbarber.deviceToken,
-    //   `Hi ${findbarber.name}, you have a new appointment booked with "${firstName}".`
-    // );
-
-    //     // Set a timeout to check for payment expiration
-
-    const handleExpiration = async () => {
-      try {
-        // Fetch the payment record using the payment ID
-        const paymentRecord = await prisma.payment.findUnique({
-          where: { id: payment.id },
-          include: { booking: true },
-        });
-
-        // If the payment status is still pending, handle expiration
-        if (paymentRecord && paymentRecord.status === 'PENDING') {
-          console.log("Payment expired, handling expiration.");
-
-          // Expire the payment (mark as cancelled)
-          await prisma.payment.update({
-            where: { id: paymentRecord.id },
-            data: { status: 'CANCELLED' },  // Update payment status to CANCELLED
-          });
-
-          // Update the booking status to cancelled
-          await prisma.booking.update({
-            where: { id: paymentRecord.booking.id },
-            data: { status: 'CANCELLED' }, // Mark booking as cancelled
-          });
-
-          // Optionally, cancel the Stripe payment intent
-          await stripe.paymentIntents.cancel(paymentIntent.id);
-
-          console.log("Payment and associated booking cancelled successfully.");
-        }
-      } catch (error) {
-        console.error("Error handling payment expiration:", error);
-      }
-    };
-
-    // Set the expiration time(e.g., 5 minutes)
-    setTimeout(handleExpiration, 5 * 60 * 1000); // 5 minutes timeout
 
 
-    // Return the response with booking and payment details
-
-    handlerOk(res, 200, { booking, payment, paymentIntentRes }, "Booking and payment created successfully");
+    // ---------- 7) Return ----------
+    return handlerOk(res, 200, { booking }, "Booking created successfully");
 
   } catch (error) {
+    // Optional: quick diagnostics (comment in dev)
+    // console.error("createBookingAndPayment error:", {
+    //   message: error?.message, stack: error?.stack
+    // });
     next(error);
   }
 };

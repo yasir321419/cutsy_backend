@@ -10,6 +10,15 @@ const barberNotificationReadSchema = Joi.object({
   }),
 });
 
+const barberAcceptRejectSchema = Joi.object({
+  query: Joi.object({}),
+  params: Joi.object({
+    bookingId: Joi.string().required(),
+  }),
+  body: Joi.object({
+  }),
+});
+
 const barberAllNotificationSchema = Joi.object({
   query: Joi.object({
     page: Joi.number().integer().min(1).default(1),
@@ -23,5 +32,6 @@ const barberAllNotificationSchema = Joi.object({
 
 module.exports = {
   barberNotificationReadSchema,
-  barberAllNotificationSchema
+  barberAllNotificationSchema,
+  barberAcceptRejectSchema
 }

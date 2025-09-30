@@ -3,26 +3,9 @@ const { NotFoundError, ValidationError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
 
 
-// const createNotification = async (req, res, next) => {
-//   try {
-//     const { title, description } = req.body;
-//     const { id } = req.user;
 
-//     const createnoti = await prisma.notification.create({
-//       data: {
-//         title,
-//         description,
-//         userId: id,
-//       }
-//     });
 
-//     handlerOk(res, 200, createnoti, 'notification create')
-//   } catch (error) {
-//     next(error)
-//   }
-// }
-
-const showAllNotification = async (req, res, next) => {
+const showAllBarberNotification = async (req, res, next) => {
   try {
 
     const { id } = req.user;
@@ -30,12 +13,14 @@ const showAllNotification = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
+    console.log(id);
+
 
     const notifications = await Promise.all([
-      prisma.notification.findMany({
-        where: { userId: id },
+      prisma.barberNotification.findMany({
+        where: { barberId: id },
         orderBy: { createdAt: "desc" },
-        include: { user: { select: { firstName: true, image: true } } },
+        include: { barber: { select: { name: true, image: true } } },
         skip,
         take: limit,
       })
@@ -46,7 +31,7 @@ const showAllNotification = async (req, res, next) => {
     }
 
 
-    handlerOk(res, 200, notifications, 'notifications found successfully')
+    handlerOk(res, 200, ...notifications, 'notifications found successfully')
 
 
 
@@ -55,11 +40,11 @@ const showAllNotification = async (req, res, next) => {
   }
 }
 
-const readNotification = async (req, res, next) => {
+const readBarberNotification = async (req, res, next) => {
   try {
     const { notificationId } = req.params;
 
-    const notification = await prisma.notification.findUnique({
+    const notification = await prisma.barberNotification.findUnique({
       where: {
         id: notificationId
       }
@@ -69,7 +54,7 @@ const readNotification = async (req, res, next) => {
       throw new NotFoundError("notification id not found")
     }
 
-    const readnotification = await prisma.notification.update({
+    const readnotification = await prisma.barberNotification.update({
       where: {
         id: notification.id
       },
@@ -90,7 +75,7 @@ const readNotification = async (req, res, next) => {
   }
 }
 
-const onAndOffNotification = async (req, res, next) => {
+const onAndOffBarberNotification = async (req, res, next) => {
   try {
     let { notificationOnAndOff, id } = req.user;
 
@@ -100,7 +85,7 @@ const onAndOffNotification = async (req, res, next) => {
       ? "Notification On Successfully"
       : "Notification Off Successfully";
 
-    await prisma.user.update({
+    await prisma.barber.update({
       where: {
         id: id
       },
@@ -116,9 +101,96 @@ const onAndOffNotification = async (req, res, next) => {
   }
 }
 
+const acceptBooking = async (req, res, next) => {
+  try {
+    const { bookingId } = req.params;
+    const { id, name } = req.user;
+    const findbooking = await prisma.booking.findUnique({
+      where: {
+        id: bookingId
+      }
+    });
+
+    if (!findbooking) {
+      throw new NotFoundError("booking not found")
+    }
+
+    await prisma.booking.update({
+      where: {
+        id: findbooking.id
+      },
+      data: {
+        isAccepted: true
+      }
+    });
+
+    await prisma.userNotification.create({
+      data: {
+        userId: findbooking.userId,
+        bookingId: findbooking.id,       // link to booking
+        title: "🎉 Accept Booking",
+        description: `${name} accept an appointment with you on ${findbooking.day} at ${findbooking.startTime} - ${findbooking.endTime}.`,
+      },
+    });
+
+
+    handlerOk(res, 200, null, "booking accepted successfully")
+
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+
+const rejectBooking = async (req, res, next) => {
+  try {
+    const { bookingId } = req.params;
+    const { name } = req.user || {};
+
+    // 1) Ensure booking exists
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        userId: true,
+        barberId: true,
+        day: true,
+        startTime: true,
+        endTime: true,
+      },
+    });
+    if (!booking) throw new NotFoundError("booking not found");
+
+    // 2) Do everything atomically in the correct order
+    await prisma.$transaction(async (tx) => {
+      // 2a) Create notification FIRST (while booking still exists)
+      await tx.userNotification.create({
+        data: {
+          userId: booking.userId,
+          bookingId: booking.id, // FK OK because booking still exists
+          title: "❌ Booking Rejected",
+          description: `${name || "Barber"} rejected your appointment on ${booking.day} at ${booking.startTime} – ${booking.endTime}.`,
+        },
+      });
+
+      // 2b) Delete children
+      await tx.bookingService.deleteMany({ where: { bookingId } });
+
+      // 2c) Delete parent booking
+      await tx.booking.delete({ where: { id: bookingId } });
+    });
+
+    handlerOk(res, 200, null, "booking rejected successfully");
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
-  // createNotification,
-  showAllNotification,
-  readNotification,
-  onAndOffNotification
+  showAllBarberNotification,
+  readBarberNotification,
+  onAndOffBarberNotification,
+  acceptBooking,
+  rejectBooking
 }

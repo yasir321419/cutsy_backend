@@ -220,7 +220,8 @@ model User{
 
   Booking Booking[]
 
-  Notification Notification[]
+
+  UserNotification UserNotification[]
 }
 
 model Barber{
@@ -279,6 +280,9 @@ model Barber{
   Booking Booking[]
 
   BarberWallet BarberWallet[]
+
+
+  BarberNotification BarberNotification[]
 }
 
 model BarberService{
@@ -410,11 +414,12 @@ model Booking {
   day     String
   startTime        DateTime 
   endTime         DateTime 
-  amount            Float
+  amount            Float?
   locationName      String
   locationLat       Float
   locationLng       Float
   status            BookingStatus  @default(PENDING)
+  isAccepted         Boolean  @default(false)
   cancellationReason String?       // New field to store cancellation reason
   createdAt         DateTime       @default(now())
   updatedAt         DateTime?      @updatedAt
@@ -429,6 +434,11 @@ model Booking {
   totalAmount       Float?         // Optional: This can be stored for invoice calculation
 
   Review Review[]
+
+
+  BarberNotification BarberNotification[]
+
+  UserNotification UserNotification[]
 }
 
 model BookingService {
@@ -469,16 +479,42 @@ model Payment {
   booking           Booking        @relation(fields: [bookingId], references: [id])
 }
 
-model Notification {
-  id            String      @id @default(uuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id])
-  title        String
-  description  String
-  isRead       Boolean   @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model BarberNotification {
+  id          String   @id @default(uuid())
+
+  // made optional:
+  barberId    String?          // was: String
+  bookingId   String?          // was: String
+
+  // relations made optional accordingly:
+  barber      Barber?  @relation(fields: [barberId], references: [id])
+  booking     Booking? @relation(fields: [bookingId], references: [id])
+
+  title       String
+  description String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
+
+model UserNotification {
+  id          String   @id @default(uuid())
+
+  // made optional:
+  userId    String?          // was: String
+  bookingId   String?          // was: String
+
+  // relations made optional accordingly:
+  user      User?  @relation(fields: [userId], references: [id])
+  booking     Booking? @relation(fields: [bookingId], references: [id])
+
+  title       String
+  description String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 
 model BarberWallet {
   id            String                 @id @default(uuid())

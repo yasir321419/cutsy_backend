@@ -3,26 +3,8 @@ const { NotFoundError, ValidationError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
 
 
-// const createNotification = async (req, res, next) => {
-//   try {
-//     const { title, description } = req.body;
-//     const { id } = req.user;
 
-//     const createnoti = await prisma.notification.create({
-//       data: {
-//         title,
-//         description,
-//         userId: id,
-//       }
-//     });
-
-//     handlerOk(res, 200, createnoti, 'notification create')
-//   } catch (error) {
-//     next(error)
-//   }
-// }
-
-const showAllNotification = async (req, res, next) => {
+const showAllUserNotification = async (req, res, next) => {
   try {
 
     const { id } = req.user;
@@ -32,7 +14,7 @@ const showAllNotification = async (req, res, next) => {
 
 
     const notifications = await Promise.all([
-      prisma.notification.findMany({
+      prisma.userNotification.findMany({
         where: { userId: id },
         orderBy: { createdAt: "desc" },
         include: { user: { select: { firstName: true, image: true } } },
@@ -55,11 +37,11 @@ const showAllNotification = async (req, res, next) => {
   }
 }
 
-const readNotification = async (req, res, next) => {
+const readUserNotification = async (req, res, next) => {
   try {
     const { notificationId } = req.params;
 
-    const notification = await prisma.notification.findUnique({
+    const notification = await prisma.userNotification.findUnique({
       where: {
         id: notificationId
       }
@@ -69,7 +51,7 @@ const readNotification = async (req, res, next) => {
       throw new NotFoundError("notification id not found")
     }
 
-    const readnotification = await prisma.notification.update({
+    const readnotification = await prisma.userNotification.update({
       where: {
         id: notification.id
       },
@@ -90,7 +72,7 @@ const readNotification = async (req, res, next) => {
   }
 }
 
-const onAndOffNotification = async (req, res, next) => {
+const onAndOffUserNotification = async (req, res, next) => {
   try {
     let { notificationOnAndOff, id } = req.user;
 
@@ -117,8 +99,7 @@ const onAndOffNotification = async (req, res, next) => {
 }
 
 module.exports = {
-  // createNotification,
-  showAllNotification,
-  readNotification,
-  onAndOffNotification
+  showAllUserNotification,
+  readUserNotification,
+  onAndOffUserNotification
 }
