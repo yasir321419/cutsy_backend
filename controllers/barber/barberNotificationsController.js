@@ -120,7 +120,8 @@ const acceptBooking = async (req, res, next) => {
         id: findbooking.id
       },
       data: {
-        isAccepted: true
+        isAccepted: true,
+        status: "ACCEPTED"
       }
     });
 

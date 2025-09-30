@@ -1,5 +1,6 @@
 require("dotenv").config();
 
+const { service } = require("../../config/emailConfig");
 const prisma = require("../../config/prismaConfig");
 const { bookingConstants } = require("../../constant/constant");
 const { ValidationError, NotFoundError, BadRequestError } = require("../../handler/CustomError");
@@ -66,16 +67,170 @@ function minutesToHHmm(mins) {
   return `${HH}:${MM}`;
 }
 
+// const createBookingAndPayment = async (req, res, next) => {
+//   try {
+//     const {
+//       barberId,
+//       day,
+//       startTime, // e.g. "04:00 am"
+//       endTime,   // e.g. "02:00 pm"
+//       locationName,
+//       locationLat,
+//       locationLng,
+//       services = [],
+//     } = req.body;
+
+//     const { id: userId, firstName } = req.user || {};
+
+//     // ---------- Validation ----------
+//     if (!barberId) throw new BadRequestError("barberId is required");
+//     if (!day) throw new BadRequestError("day is required");
+//     if (!startTime || !endTime) throw new BadRequestError("startTime and endTime are required");
+//     if (!Array.isArray(services) || services.length === 0) {
+//       throw new BadRequestError("At least one service is required");
+//     }
+
+//     // Coerce and validate lat/lng as numbers
+//     const latNum = locationLat !== undefined ? Number(locationLat) : undefined;
+//     const lngNum = locationLng !== undefined ? Number(locationLng) : undefined;
+//     if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
+//       throw new BadRequestError("locationLat and locationLng must be valid numbers");
+//     }
+
+//     const normalizedDay = normalizeDay(day);
+//     const requestedStartMins = parseTimeToMinutes(startTime); // handles am/pm
+//     const requestedEndMins = parseTimeToMinutes(endTime);
+//     if (requestedEndMins <= requestedStartMins) {
+//       // (If you need overnight support, we can extend logic here.)
+//       throw new BadRequestError("End time must be after start time.");
+//     }
+
+//     // ---------- 1) Find barber ----------
+//     const findbarber = await prisma.barber.findUnique({
+//       where: { id: barberId },
+//       include: {
+//         BarberAvailableHour: true,
+//         BarberService: true,
+//       },
+//     });
+//     if (!findbarber) throw new NotFoundError("Barber not found");
+
+//     // ---------- 2) Availability check ----------
+//     const isAvailable = findbarber.BarberAvailableHour.some((slot) => {
+//       if (normalizeDay(slot.day) !== normalizedDay) return false;
+//       const slotStart = parseTimeToMinutes(slot.startTime);
+//       const slotEnd = parseTimeToMinutes(slot.endTime);
+//       return slotStart <= requestedStartMins && requestedEndMins <= slotEnd;
+//     });
+//     if (!isAvailable) {
+//       throw new BadRequestError("Barber is not available at the selected time.");
+//     }
+
+//     // ---------- 3) Services check ----------
+//     const serviceIndex = new Map(findbarber.BarberService.map((s) => [s.id, s]));
+//     const selectedService = services
+//       .map((sid) => serviceIndex.get(sid))
+//       .filter(Boolean);
+//     // If you want to enforce strict matching:
+//     // if (selectedService.length !== services.length) {
+//     //   throw new NotFoundError("One or more selected services are not offered by this barber.");
+//     // }
+
+//     // ---------- 4) Compute UTC times ----------
+//     // IMPORTANT: convert to "HH:mm" 24h BEFORE calling your helper
+//     const startHHmm24 = minutesToHHmm(requestedStartMins); // e.g., 240 -> "04:00"
+//     const endHHmm24 = minutesToHHmm(requestedEndMins);   // e.g., 840 -> "14:00"
+
+//     let startUTC, endUTC;
+//     try {
+//       ({ startUTC, endUTC } = computeStartEndUTC({
+//         dayStr: normalizedDay,
+//         startHHmm: startHHmm24,   // now 24h string your helper likely expects
+//         endHHmm: endHHmm24,
+//         lat: latNum,
+//         lng: lngNum,
+//       }));
+//     } catch (e) {
+//       // Many timezone/date libraries throw vague errors when they get NaN.
+//       throw new ValidationError(`Failed to compute UTC times: ${e?.message || e}`);
+//     }
+//     if (!startUTC || !endUTC) {
+//       throw new ValidationError("Failed to compute UTC times (empty result).");
+//     }
+
+//     // ---------- 5) Overlap check ----------
+//     const existing = await prisma.booking.findFirst({
+//       where: {
+//         barberId: findbarber.id,
+//         day: normalizedDay,
+//         startTime: { lt: endUTC },
+//         endTime: { gt: startUTC },
+//       },
+//       select: { id: true },
+//     });
+//     if (existing) {
+//       throw new BadRequestError("Selected time conflicts with another booking.");
+//     }
+
+//     // ---------- 6) Create booking ----------
+//     const booking = await prisma.booking.create({
+//       data: {
+//         userId,
+//         barberId: findbarber.id,
+//         day: normalizedDay,
+//         startTime: startUTC, // store as UTC datetime
+//         endTime: endUTC,
+//         // amount: 0, // keep commented if schema allows null; or set a default
+//         locationName,
+//         locationLat: latNum,
+//         locationLng: lngNum,
+//         services: {
+//           create: selectedService.map((s) => ({
+//             serviceCategory: { connect: { id: s.serviceCategoryId } },
+//             price: parseFloat(s.price), // Uncomment to persist price
+//           })),
+//         },
+//       },
+//       include: { services: true },
+//     });
+
+//     if (!booking) throw new ValidationError("Booking creation failed");
+
+
+//     await prisma.barberNotification.create({
+//       data: {
+//         barberId: findbarber.id,       // the barber who should receive it
+//         bookingId: booking.id,       // link to booking
+//         title: "🎉 New Booking",
+//         description: `${firstName} booked an appointment with you on ${day} at ${startTime} - ${endTime}.`,
+//       },
+//     });
+
+
+
+//     // ---------- 7) Return ----------
+//     return handlerOk(res, 200, { booking }, "Booking created successfully");
+
+//   } catch (error) {
+//     // Optional: quick diagnostics (comment in dev)
+//     // console.error("createBookingAndPayment error:", {
+//     //   message: error?.message, stack: error?.stack
+//     // });
+//     next(error);
+//   }
+// };
+
+
 const createBookingAndPayment = async (req, res, next) => {
   try {
     const {
       barberId,
-      day,
-      startTime, // e.g. "04:00 am"
-      endTime,   // e.g. "02:00 pm"
+      startTime,   // now direct ISO datetime string
+      endTime,     // now direct ISO datetime string
       locationName,
       locationLat,
       locationLng,
+      day,
       services = [],
     } = req.body;
 
@@ -83,10 +238,23 @@ const createBookingAndPayment = async (req, res, next) => {
 
     // ---------- Validation ----------
     if (!barberId) throw new BadRequestError("barberId is required");
-    if (!day) throw new BadRequestError("day is required");
     if (!startTime || !endTime) throw new BadRequestError("startTime and endTime are required");
     if (!Array.isArray(services) || services.length === 0) {
       throw new BadRequestError("At least one service is required");
+    }
+
+    // Parse into Date objects
+    const startUTC = new Date(startTime);
+    const endUTC = new Date(endTime);
+
+    if (!(startUTC instanceof Date) || isNaN(startUTC)) {
+      throw new BadRequestError("Invalid startTime");
+    }
+    if (!(endUTC instanceof Date) || isNaN(endUTC)) {
+      throw new BadRequestError("Invalid endTime");
+    }
+    if (endUTC <= startUTC) {
+      throw new BadRequestError("endTime must be after startTime");
     }
 
     // Coerce and validate lat/lng as numbers
@@ -96,72 +264,25 @@ const createBookingAndPayment = async (req, res, next) => {
       throw new BadRequestError("locationLat and locationLng must be valid numbers");
     }
 
-    const normalizedDay = normalizeDay(day);
-    const requestedStartMins = parseTimeToMinutes(startTime); // handles am/pm
-    const requestedEndMins = parseTimeToMinutes(endTime);
-    if (requestedEndMins <= requestedStartMins) {
-      // (If you need overnight support, we can extend logic here.)
-      throw new BadRequestError("End time must be after start time.");
-    }
-
     // ---------- 1) Find barber ----------
     const findbarber = await prisma.barber.findUnique({
       where: { id: barberId },
       include: {
-        BarberAvailableHour: true,
         BarberService: true,
       },
     });
     if (!findbarber) throw new NotFoundError("Barber not found");
 
-    // ---------- 2) Availability check ----------
-    const isAvailable = findbarber.BarberAvailableHour.some((slot) => {
-      if (normalizeDay(slot.day) !== normalizedDay) return false;
-      const slotStart = parseTimeToMinutes(slot.startTime);
-      const slotEnd = parseTimeToMinutes(slot.endTime);
-      return slotStart <= requestedStartMins && requestedEndMins <= slotEnd;
-    });
-    if (!isAvailable) {
-      throw new BadRequestError("Barber is not available at the selected time.");
-    }
-
-    // ---------- 3) Services check ----------
+    // ---------- 2) Services check ----------
     const serviceIndex = new Map(findbarber.BarberService.map((s) => [s.id, s]));
     const selectedService = services
       .map((sid) => serviceIndex.get(sid))
       .filter(Boolean);
-    // If you want to enforce strict matching:
-    // if (selectedService.length !== services.length) {
-    //   throw new NotFoundError("One or more selected services are not offered by this barber.");
-    // }
 
-    // ---------- 4) Compute UTC times ----------
-    // IMPORTANT: convert to "HH:mm" 24h BEFORE calling your helper
-    const startHHmm24 = minutesToHHmm(requestedStartMins); // e.g., 240 -> "04:00"
-    const endHHmm24 = minutesToHHmm(requestedEndMins);   // e.g., 840 -> "14:00"
-
-    let startUTC, endUTC;
-    try {
-      ({ startUTC, endUTC } = computeStartEndUTC({
-        dayStr: normalizedDay,
-        startHHmm: startHHmm24,   // now 24h string your helper likely expects
-        endHHmm: endHHmm24,
-        lat: latNum,
-        lng: lngNum,
-      }));
-    } catch (e) {
-      // Many timezone/date libraries throw vague errors when they get NaN.
-      throw new ValidationError(`Failed to compute UTC times: ${e?.message || e}`);
-    }
-    if (!startUTC || !endUTC) {
-      throw new ValidationError("Failed to compute UTC times (empty result).");
-    }
-
-    // ---------- 5) Overlap check ----------
+    // ---------- 3) Overlap check ----------
     const existing = await prisma.booking.findFirst({
       where: {
         barberId: findbarber.id,
-        day: normalizedDay,
         startTime: { lt: endUTC },
         endTime: { gt: startUTC },
       },
@@ -171,22 +292,21 @@ const createBookingAndPayment = async (req, res, next) => {
       throw new BadRequestError("Selected time conflicts with another booking.");
     }
 
-    // ---------- 6) Create booking ----------
+    // ---------- 4) Create booking ----------
     const booking = await prisma.booking.create({
       data: {
         userId,
         barberId: findbarber.id,
-        day: normalizedDay,
-        startTime: startUTC, // store as UTC datetime
+        day,
+        startTime: startUTC, // direct UTC datetime
         endTime: endUTC,
-        // amount: 0, // keep commented if schema allows null; or set a default
         locationName,
         locationLat: latNum,
         locationLng: lngNum,
         services: {
           create: selectedService.map((s) => ({
             serviceCategory: { connect: { id: s.serviceCategoryId } },
-            price: parseFloat(s.price), // Uncomment to persist price
+            price: parseFloat(s.price),
           })),
         },
       },
@@ -195,26 +315,19 @@ const createBookingAndPayment = async (req, res, next) => {
 
     if (!booking) throw new ValidationError("Booking creation failed");
 
-
+    // ---------- 5) Create barber notification ----------
     await prisma.barberNotification.create({
       data: {
-        barberId: findbarber.id,       // the barber who should receive it
-        bookingId: booking.id,       // link to booking
+        barberId: findbarber.id,
+        bookingId: booking.id,
         title: "🎉 New Booking",
-        description: `${firstName} booked an appointment with you on ${day} at ${startTime} - ${endTime}.`,
+        description: `${firstName} booked an appointment with you from ${startUTC.toISOString()} to ${endUTC.toISOString()}.`,
       },
     });
 
-
-
-    // ---------- 7) Return ----------
+    // ---------- 6) Return ----------
     return handlerOk(res, 200, { booking }, "Booking created successfully");
-
   } catch (error) {
-    // Optional: quick diagnostics (comment in dev)
-    // console.error("createBookingAndPayment error:", {
-    //   message: error?.message, stack: error?.stack
-    // });
     next(error);
   }
 };
@@ -227,7 +340,12 @@ const showAppoinmentDetail = async (req, res, next) => {
       include: {
         user: true,
         barber: true,
-        services: true
+        services: {
+          include: {
+            serviceCategory: { select: { service: true } }
+          }
+        }
+
       }
     });
 

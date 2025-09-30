@@ -47,7 +47,7 @@ const showBarberOnGoingAppoinment = async (req, res, next) => {
           in: ["ACCEPTED", "ARRIVED"]
         },
         startTime: { lte: nowUtc },     // started
-        endTime: { gt: nowUtc },
+        // endTime: { gt: nowUtc },
       },
       include: {
         user: true,
