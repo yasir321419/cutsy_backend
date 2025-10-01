@@ -30,7 +30,7 @@ userBookingRouter.post(
 );
 
 userBookingRouter.get(
-  "/trackBarber/:barberId",
+  "/trackBarber/:bookingId",
   limiter,
   verifyUserToken,
   userBookingController.trackBarber

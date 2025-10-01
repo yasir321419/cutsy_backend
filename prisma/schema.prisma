@@ -62,6 +62,7 @@ enum WeekDay {
 enum BookingStatus {
   PENDING
   ACCEPTED
+  STARTED
   ARRIVED
   COMPLETED
   CANCELLED

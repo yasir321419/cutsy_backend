@@ -432,95 +432,28 @@ const cancelAppointment = async (req, res, next) => {
 
 const trackBarber = async (req, res, next) => {
   try {
-    const { barberId } = req.params;
-    const { latitude, longitude, barberLatitude, barberLongitude, status, bookingId } = req.body; // Data from frontend
+    const { bookingId } = req.params;
 
-    // Fetch the barber details
-    const barber = await prisma.barber.findUnique({
+    const findbooking = await prisma.booking.findUnique({
       where: {
-        id: barberId,
-      },
+        id: bookingId
+      }
     });
 
-    if (!barber) {
-      throw new NotFoundError("Barber not found");
+    if (!findbooking) {
+      throw new NotFoundError("booking not found")
+    }
+    const bookingtracking = await prisma.bookingTracking.findFirst({
+      where: {
+        bookingId: bookingId
+      }
+    });
+
+    if (!bookingtracking) {
+      throw new NotFoundError("booking track not found")
     }
 
-    // First check if tracking already exists
-    let existingTracking = await prisma.bookingTracking.findFirst({
-      where: {
-        bookingId: bookingId,
-      },
-    });
-
-    // If no tracking record exists, create a new one
-    if (!existingTracking) {
-      const createdTracking = await prisma.bookingTracking.create({
-        data: {
-          bookingId: bookingId,
-          lat: latitude, // User's latitude
-          lng: longitude, // User's longitude
-          barberLat: barberLatitude, // Barber's latitude (sent from frontend)
-          barberLng: barberLongitude, // Barber's longitude (sent from frontend)
-          status: status, // Status from frontend (e.g., "On the way")
-          timestamp: new Date(),
-        },
-      });
-
-      return handlerOk(res, 200, {
-        status: "Tracking started",
-        userLat: latitude,
-        userLng: longitude,
-        barberLat: barberLatitude,
-        barberLng: barberLongitude,
-        status: status,
-      }, "Tracking created successfully");
-    }
-
-    // If tracking record exists, update it with new information
-    const updatedTracking = await prisma.bookingTracking.update({
-      where: {
-        id: existingTracking.id,
-      },
-      data: {
-        lat: latitude, // Updated user latitude
-        lng: longitude, // Updated user longitude
-        barberLat: barberLatitude, // Updated barber latitude
-        barberLng: barberLongitude, // Updated barber longitude
-        status: status, // Updated status
-        timestamp: new Date(),
-      },
-    });
-
-    // Optionally update the booking status with the status from frontend
-    const updatedBooking = await prisma.booking.update({
-      where: {
-        id: bookingId,
-      },
-      data: {
-        status: status, // Update booking status with status from frontend
-      },
-    });
-
-    // Update payment status if needed
-    const updatedPayment = await prisma.payment.update({
-      where: {
-        bookingId: bookingId,
-      },
-      data: {
-        status: status, // Update payment status based on booking status
-      },
-    });
-
-    handlerOk(res, 200, {
-      status: "Tracking updated successfully",
-      userLat: latitude,
-      userLng: longitude,
-      barberLat: barberLatitude,
-      barberLng: barberLongitude,
-      status: status,
-    }, "Tracking updated successfully");
-
+    handlerOk(res, 200, bookingtracking, "track barber successully");
   } catch (error) {
     next(error);
   }
