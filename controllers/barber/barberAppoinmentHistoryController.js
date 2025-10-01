@@ -8,7 +8,7 @@ const showBarberUpComingAppoinment = async (req, res, next) => {
 
     const nowUtc = new Date();
 
-    // console.log(nowUtc);
+    console.log(nowUtc);
 
     const upcomingappoinment = await prisma.booking.findMany({
       where: {
@@ -147,31 +147,6 @@ const trackUser = async (req, res, next) => {
         });
       }
 
-      // 2B) If you DID add @unique on bookingId (1:1), replace the block above with upsert:
-      // await tx.bookingTracking.upsert({
-      //   where: { bookingId }, // requires @unique on bookingId
-      //   create: {
-      //     booking: { connect: { id: bookingId } },
-      //     lat: uLat, lng: uLng, barberLat: bLat, barberLng: bLng,
-      //     status: status || "On the way",
-      //     timestamp: new Date(),
-      //   },
-      //   update: {
-      //     lat: uLat, lng: uLng, barberLat: bLat, barberLng: bLng,
-      //     status: status || "On the way",
-      //     timestamp: new Date(),
-      //   },
-      // });
-
-      // 3) Booking.status is an ENUM — don’t write free text here unless it matches the enum.
-      // If your enum is BookingStatus (PENDING, IN_PROGRESS, COMPLETED, etc.),
-      // map the frontend string to a valid enum before updating.
-      // Example mapping:
-      // const enumMap = { "On the way": "IN_PROGRESS", "Arrived": "IN_PROGRESS", "Completed": "COMPLETED" };
-      // const mapped = enumMap[status] ?? undefined;
-      // if (mapped) {
-      //   await tx.booking.update({ where: { id: bookingId }, data: { status: mapped } });
-      // }
     });
 
     return handlerOk(res, 200, {

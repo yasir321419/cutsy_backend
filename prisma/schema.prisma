@@ -459,7 +459,7 @@ model BookingTracking {
   lng           Float
   barberLat     Float
   barberLng     Float
-  status        String  // Ensure 'status' is a field of type String
+  status        String?  // Ensure 'status' is a field of type String
   timestamp     DateTime @default(now())
 
   booking       Booking @relation(fields: [bookingId], references: [id])

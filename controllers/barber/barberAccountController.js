@@ -4,6 +4,83 @@ const { handlerOk } = require("../../handler/resHandler");
 const sendNotification = require("../../utils/notification");
 const { createExternalBankAccount, getAllBankDetail, verifyConnectedAccount, getBalance, createPayout, getBalanceTransactions } = require("../../utils/stripeApis");
 
+
+
+const ensureOnboarding = async (req, res, next) => {
+  try {
+    const { email } = req.user; // or use req.user.id if you prefer
+
+    // 1) Fetch barber (must have a row)
+    const barber = await prisma.barber.findUnique({
+      where: { email },
+      select: { id: true, email: true, barberAccountId: true },
+    });
+    if (!barber) throw new NotFoundError("barber not found");
+
+    let accountId = barber.barberAccountId;
+
+    // 2) Create Stripe connected account if missing
+    if (!accountId) {
+      const acct = await stripe.accounts.create({
+        type: "custom",
+        country: "US",
+        email: barber.email,
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+      });
+      accountId = acct.id;
+      await prisma.barber.update({
+        where: { id: barber.id },
+        data: { barberAccountId: accountId },
+      });
+    }
+
+    // 3) Check status from Stripe
+    const acct = await stripe.accounts.retrieve(accountId);
+    const needsOnboarding =
+      !acct.details_submitted ||
+      (acct.requirements?.currently_due?.length ?? 0) > 0;
+
+    if (needsOnboarding) {
+      // 4) Create fresh onboarding link (single-use)
+      const refreshUrl =
+        process.env.STRIPE_REFRESH_URL ||
+        "http://localhost:4000/api/v1/reauth";
+      const returnBase =
+        process.env.STRIPE_RETURN_URL_BASE ||
+        "http://localhost:4000/api/v1/success";
+
+      const link = await stripe.accountLinks.create({
+        account: accountId,
+        refresh_url: refreshUrl,
+        return_url: `${returnBase}/${accountId}`,
+        type: "account_onboarding",
+      });
+
+      return handlerOk(
+        res,
+        200,
+        { status: "needs_onboarding", accountId, onboardingUrl: link.url },
+        "Onboarding link generated"
+      );
+    }
+
+    // 5) Already onboarded
+    return handlerOk(
+      res,
+      200,
+      { status: "onboarded", accountId },
+      "User has already completed onboarding"
+    );
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+
 const addbarberBusinessAccount = async (req, res, next) => {
   try {
     const { barberAccountId, name, deviceToken } = req.user;
@@ -211,5 +288,6 @@ module.exports = {
   verificationBarberBusinessAccount,
   checkBarberBalance,
   withDrawAmountBarber,
-  showAllBarberTransactions
+  showAllBarberTransactions,
+  ensureOnboarding
 }
