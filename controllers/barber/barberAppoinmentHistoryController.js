@@ -8,7 +8,7 @@ const showBarberUpComingAppoinment = async (req, res, next) => {
 
     const nowUtc = new Date();
 
-    console.log(nowUtc);
+    // console.log(nowUtc);
 
     const upcomingappoinment = await prisma.booking.findMany({
       where: {
@@ -195,7 +195,7 @@ const StartAppoinment = async (req, res, next) => {
     const alreadyStart = await prisma.booking.findFirst({
       where: {
         id: bookingId,
-        status: "STARTED"
+        status: "STARTED" // Ensure we don't re-trigger the start flow once it's already marked started
       }
     });
 
@@ -208,7 +208,7 @@ const StartAppoinment = async (req, res, next) => {
         id: bookingId
       },
       data: {
-        status: "STARTED"
+        status: "STARTED" // Persist the in-progress state while the appointment is taking place
       }
     });
 
