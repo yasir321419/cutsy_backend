@@ -3,14 +3,14 @@ const { ValidationError, NotFoundError, ConflictError, BadRequestError } = requi
 const { handlerOk } = require("../../handler/resHandler");
 const sendNotification = require("../../utils/notification");
 const { createExternalBankAccount, getAllBankDetail, verifyConnectedAccount, getBalance, createPayout, getBalanceTransactions } = require("../../utils/stripeApis");
+require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_KEY);
 
 
-
-const ensureOnboarding = async (req, res, next) => {
+const completeOnboarding = async (req, res, next) => {
   try {
-    const { email } = req.user; // or use req.user.id if you prefer
+    const { email } = req.user;
 
-    // 1) Fetch barber (must have a row)
     const barber = await prisma.barber.findUnique({
       where: { email },
       select: { id: true, email: true, barberAccountId: true },
@@ -19,23 +19,23 @@ const ensureOnboarding = async (req, res, next) => {
 
     let accountId = barber.barberAccountId;
 
-    // 2) Create Stripe connected account if missing
-    if (!accountId) {
-      const acct = await stripe.accounts.create({
-        type: "custom",
-        country: "US",
-        email: barber.email,
-        capabilities: {
-          card_payments: { requested: true },
-          transfers: { requested: true },
-        },
-      });
-      accountId = acct.id;
-      await prisma.barber.update({
-        where: { id: barber.id },
-        data: { barberAccountId: accountId },
-      });
-    }
+    // // 2) Create Stripe connected account if missing
+    // if (!accountId) {
+    //   const acct = await stripe.accounts.create({
+    //     type: "custom",
+    //     country: "US",
+    //     email: barber.email,
+    //     capabilities: {
+    //       card_payments: { requested: true },
+    //       transfers: { requested: true },
+    //     },
+    //   });
+    //   accountId = acct.id;
+    //   await prisma.barber.update({
+    //     where: { id: barber.id },
+    //     data: { barberAccountId: accountId },
+    //   });
+    // }
 
     // 3) Check status from Stripe
     const acct = await stripe.accounts.retrieve(accountId);
@@ -45,12 +45,8 @@ const ensureOnboarding = async (req, res, next) => {
 
     if (needsOnboarding) {
       // 4) Create fresh onboarding link (single-use)
-      const refreshUrl =
-        process.env.STRIPE_REFRESH_URL ||
-        "http://localhost:4000/api/v1/reauth";
-      const returnBase =
-        process.env.STRIPE_RETURN_URL_BASE ||
-        "http://localhost:4000/api/v1/success";
+      const refreshUrl = "http://localhost:4000/api/v1/reauth";
+      const returnBase = "http://localhost:4000/api/v1/success";
 
       const link = await stripe.accountLinks.create({
         account: accountId,
@@ -289,5 +285,5 @@ module.exports = {
   checkBarberBalance,
   withDrawAmountBarber,
   showAllBarberTransactions,
-  ensureOnboarding
+  completeOnboarding
 }

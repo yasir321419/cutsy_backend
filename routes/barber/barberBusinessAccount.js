@@ -7,7 +7,12 @@ const barberBusinessAccountController = require("../../controllers/barber/barber
 const { verifyBarberToken } = require("../../middleware/auth");
 const { addBarberbusinessAccountSchema, verifyBarberbusinessAccountSchema, withDrawAmountBarberSchema } = require("../../schema/barber/account");
 
-
+barberBusinessAccountRouter.post(
+  "/completeOnboarding",
+  limiter,
+  verifyBarberToken,
+  barberBusinessAccountController.completeOnboarding
+);
 
 
 barberBusinessAccountRouter.post(
