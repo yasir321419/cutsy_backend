@@ -46,7 +46,7 @@ const showBarberOnGoingAppoinment = async (req, res, next) => {
       where: {
         barberId: id,
         status: {
-          in: ["ACCEPTED", "ARRIVED"]
+          in: ["ACCEPTED", "ARRIVED", "STARTED"]
         },
         startTime: { lte: nowUtc },     // started
         // endTime: { gt: nowUtc },
