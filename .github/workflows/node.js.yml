@@ -115,10 +115,23 @@ jobs:
           echo "=== prisma generate ==="
           npx prisma generate
 
-          # One-time, idempotent: mark baseline as applied if needed.
-          # This expects you've committed prisma/migrations/0000_baseline/migration.sql
+          # One-time, idempotent: record existing migrations as applied if the target DB has no history yet.
           echo "=== prisma baseline resolve (best-effort) ==="
-          npx prisma migrate resolve --applied 0000_baseline || true
+          # Best-effort baseline so existing production databases gain Prisma migration history without wiping data
+          set +e  # Allow the discovery probe to fail without aborting the job
+          npx prisma db execute --schema prisma/schema.prisma --command "SHOW TABLES LIKE '_prisma_migrations';" | grep -q '_prisma_migrations'
+          HAS_MIGRATION_HISTORY=$?
+          set -e
+          if [ "$HAS_MIGRATION_HISTORY" -eq 0 ]; then
+            echo "Prisma migration history already present; skipping baseline resolve."
+          else
+            echo "No migration history detected; marking existing migrations as applied for baseline."
+            for MIGRATION_PATH in prisma/migrations/*/; do
+              MIGRATION_NAME="$(basename "$MIGRATION_PATH")"
+              echo "Marking migration $MIGRATION_NAME as applied (best-effort baseline)."
+              npx prisma migrate resolve --applied "$MIGRATION_NAME" || true
+            done
+          fi
 
           echo "=== prisma migrate deploy ==="
           npx prisma migrate deploy
