@@ -129,19 +129,24 @@ const showAllStats = async (req, res, next) => {
       }
     });
 
-
     // Sum the hours worked based on start and end time
     const totalHours = totalHoursWorked.reduce((total, booking) => {
-      // Ensure the start and end times are in "HH:mm" format
-      const start = booking.startTime.split(':');
-      const end = booking.endTime.split(':');
+      // Use Date object methods to get the hours and minutes
+      const start = new Date(booking.startTime);
+      const end = new Date(booking.endTime);
 
-      console.log(start, 'start');
+      // Extract hours and minutes for start and end times
+      const startHours = start.getUTCHours();
+      const startMinutes = start.getUTCMinutes();
+      const endHours = end.getUTCHours();
+      const endMinutes = end.getUTCMinutes();
 
+      console.log(startHours, startMinutes, 'start');  // Logs start time in hours and minutes
+      console.log(endHours, endMinutes, 'end');        // Logs end time in hours and minutes
 
       // Create Date objects by using a fixed date and the extracted time values
-      const startDate = new Date(Date.UTC(1970, 0, 1, start[0], start[1])); // "1970-01-01T{startTime}:00Z"
-      const endDate = new Date(Date.UTC(1970, 0, 1, end[0], end[1])); // "1970-01-01T{endTime}:00Z"
+      const startDate = new Date(Date.UTC(1970, 0, 1, startHours, startMinutes)); // Using start hours and minutes
+      const endDate = new Date(Date.UTC(1970, 0, 1, endHours, endMinutes)); // Using end hours and minutes
 
       // Calculate the difference in milliseconds
       const diffInMilliseconds = endDate - startDate;
@@ -154,9 +159,6 @@ const showAllStats = async (req, res, next) => {
     }, 0);
 
     console.log(totalHours, 'total hours worked');
-
-    // console.log(totalHours, 'hours');
-
 
     // Calculate the average rating for the barber
     const averageRating = await prisma.review.aggregate({
@@ -223,6 +225,7 @@ const showAllStats = async (req, res, next) => {
     next(error);
   }
 };
+
 
 
 

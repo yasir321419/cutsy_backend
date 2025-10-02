@@ -109,6 +109,8 @@ const trackUser = async (req, res, next) => {
       status // free-text from frontend, e.g. "On the way"
     } = req.body;
 
+    console.log(status, 'status');
+
 
     await prisma.$transaction(async (tx) => {
       // 1) Ensure booking exists
@@ -122,6 +124,15 @@ const trackUser = async (req, res, next) => {
       let existing = await tx.bookingTracking.findFirst({ where: { bookingId } });
 
       if (!existing) {
+
+        await tx.booking.update({
+          where: {
+            id: bookingId
+          },
+          data: {
+            status: status
+          }
+        })
         await tx.bookingTracking.create({
           data: {
             booking: { connect: { id: bookingId } }, // ← use connect to satisfy FK
@@ -129,7 +140,7 @@ const trackUser = async (req, res, next) => {
             lng: userLongitude,
             barberLat: barberLatitude,
             barberLng: barberLongitude,
-            status: status || "On the way",
+            status: status,
             timestamp: new Date(),
           },
         });
@@ -141,16 +152,25 @@ const trackUser = async (req, res, next) => {
             lng: userLongitude,
             barberLat: barberLatitude,
             barberLng: barberLongitude,
-            status: status || "On the way",
+            status: status,
             timestamp: new Date(),
           },
         });
+
+        await tx.booking.update({
+          where: {
+            id: bookingId
+          },
+          data: {
+            status: status
+          }
+        })
       }
 
     });
 
     return handlerOk(res, 200, {
-      status: "Tracking saved",
+      status: status,
       userLat: userLatitude,
       userLng: userLongitude,
       barberLat: barberLatitude,
