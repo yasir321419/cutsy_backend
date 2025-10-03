@@ -149,6 +149,30 @@ io.on("connection", (socket) => {
     ChatRoomService.sendMessage(io, socket, data);
   });
 
+  // --- INBOX SUBSCRIPTION: send initial summary + keep updated
+  socket.on("rooms:getSummary", async () => {
+    try {
+      const summary = await ChatRoomService.getRoomsSummary(socket.userId);
+      socket.emit("rooms:summary", { status: "success", data: summary });
+    } catch (e) {
+      socket.emit("rooms:summary", { status: "error", message: "Failed to load summary" });
+    }
+  });
+
+  // --- When user opens a room list screen and wants to clear badges for a specific room
+  socket.on("rooms:markRead", async ({ chatroomId }) => {
+    try {
+      await ChatRoomService.markRoomRead(socket.userId, socket.userType, chatroomId);
+      // Push updated badges + summary
+      const summary = await ChatRoomService.getRoomsSummary(socket.userId);
+      io.to(socket.userId).emit("rooms:summary", { status: "success", data: summary });
+      // Optional fine-grained event for one room badge reset:
+      io.to(socket.userId).emit("rooms:badge:set", { chatroomId, unread: 0 });
+    } catch (e) {
+      socket.emit("rooms:badge:set", { status: "error", chatroomId, message: "Failed to mark as read" });
+    }
+  });
+
   // Handle barber location updates
   // socket.on('updateLocation', (locationData) => {
   //   console.log('Barber location:', locationData);
