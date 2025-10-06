@@ -13,7 +13,9 @@ const showBarberUpComingAppoinment = async (req, res, next) => {
     const upcomingappoinment = await prisma.booking.findMany({
       where: {
         barberId: id,
-        status: "PENDING",
+        status: {
+          in: ["ACCEPTED", "PENDING"]
+        },
         startTime: {
           gt: nowUtc
         }
@@ -41,6 +43,7 @@ const showBarberOnGoingAppoinment = async (req, res, next) => {
 
     const nowUtc = new Date();
 
+    console.log(nowUtc);
 
     const ongoingappoinment = await prisma.booking.findMany({
       where: {
@@ -49,7 +52,7 @@ const showBarberOnGoingAppoinment = async (req, res, next) => {
           in: ["ACCEPTED", "ARRIVED", "STARTED"]
         },
         startTime: { lte: nowUtc },     // started
-        // endTime: { gt: nowUtc },
+        // endTime: { gt: nowUtc },   xs
       },
       include: {
         user: true,

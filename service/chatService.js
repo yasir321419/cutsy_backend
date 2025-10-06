@@ -5,13 +5,31 @@ const prisma = require("../config/prismaConfig");
 
 
 
-const sendMessage = async (io, socket, data) => {
+const resolveChatRoomId = (payload = {}) =>
+  payload.chatroom ||
+  payload.chatroomId ||
+  payload.chatRoomId ||
+  payload.chatRoom ||
+  payload.chat_room ||
+  payload.id ||
+  null;
+
+
+const sendMessage = async (io, socket, data = {}) => {
   try {
-    const { chatroom, message } = data;
+    const { message } = data;
+    const chatroomId = resolveChatRoomId(data);
     const senderId = socket.userId;
     const senderType = socket.userType;
 
     console.log(senderType, 'senderType');
+
+    if (!chatroomId) {
+      return io.to(senderId).emit("message", {
+        status: "error",
+        message: "Chat room id is required"
+      });
+    }
 
     if (!message || !message.trim()) {
       return io.to(senderId).emit("message", {
@@ -21,7 +39,7 @@ const sendMessage = async (io, socket, data) => {
     }
 
     const chatRoomData = await prisma.chatRoom.findUnique({
-      where: { id: chatroom },
+      where: { id: chatroomId },
       include: {
         user: true,
         barber: true,
@@ -50,7 +68,7 @@ const sendMessage = async (io, socket, data) => {
 
     const messageData = {
       content: message,
-      chatRoomId: chatroom,
+      chatRoomId: chatroomId,
       isRead: false, // ✅ Unread by default
       senderUserId: senderType === "USER" ? senderId : null,
       senderAdminId: senderType === "ADMIN" ? senderId : null,
@@ -74,25 +92,34 @@ const sendMessage = async (io, socket, data) => {
 
     // Update chatRoom's updatedAt to sort chats by last activity
     await prisma.chatRoom.update({
-      where: { id: chatroom },
+      where: { id: chatroomId },
       data: { updatedAt: new Date() }
     });
 
     // Emit message to all participants
     const participants = [chatRoomData.userId, chatRoomData.adminId, chatRoomData.barberId].filter(Boolean);
 
-    participants.forEach((participantId) => {
+    for (const participantId of participants) {
       io.to(participantId).emit("message", {
         status: "success",
         message: "Message sent successfully",
         data: newMessage
       });
 
-      // Emit separate event for unread count refresh
-      // io.to(participantId).emit("roomUpdated", {
-      //   chatRoomId: chatroom
-      // });
-    });
+      try {
+        const summary = await getRoomsSummary(participantId);
+        io.to(participantId).emit("rooms:summary", {
+          status: "success",
+          data: summary
+        });
+      } catch (summaryErr) {
+        console.error("rooms:summary refresh error:", summaryErr);
+        io.to(participantId).emit("rooms:summary", {
+          status: "error",
+          message: "Failed to refresh summary"
+        });
+      }
+    }
 
   } catch (err) {
     console.error("sendMessage error:", err);
@@ -104,11 +131,17 @@ const sendMessage = async (io, socket, data) => {
 };
 
 
-const getChatRoomData = async (socket, data) => {
+const getChatRoomData = async (socket, data = {}) => {
   try {
     const userId = socket.userId;
-    const userType = socket.userType;
-    const chatroomId = data.chatroom;
+    const chatroomId = resolveChatRoomId(data);
+
+    if (!chatroomId) {
+      return socket.emit("getRoom", {
+        status: "error",
+        message: "Chat room id is required"
+      });
+    }
 
     const chatRoomData = await prisma.chatRoom.findUnique({
       where: { id: chatroomId },
@@ -160,27 +193,10 @@ const getChatRoomData = async (socket, data) => {
     }
 
     // ✅ Mark unread messages as read where this user is not the sender
-    const notSenderCondition = {};
-    if (userType === 'USER') {
-      notSenderCondition.senderUserId = userId;
-    } else if (userType === 'ADMIN') {
-      notSenderCondition.senderAdminId = userId;
-    } else if (userType === 'BARBER') {
-      notSenderCondition.senderBarberId = userId;
-    }
-
     await prisma.message.updateMany({
       where: {
         chatRoomId: chatroomId,
         isRead: false,
-        // NOT: {
-        //   OR: [
-        //     { senderUserId: userType === 'USER' ? userId : undefined },
-        //     { senderAdminId: userType === 'ADMIN' ? userId : undefined },
-        //     { senderBarberId: userType === 'BARBER' ? userId : undefined }
-        //   ]
-        // }
-
         OR: [
           {
             AND: [
@@ -264,61 +280,56 @@ const getRoomsSummary = async (userId) => {
     }
   });
 
-  const roomIds = rooms.map(r => r.id);
+  if (rooms.length === 0) return [];
 
-  if (roomIds.length === 0) return [];
+  const unreadCounts = await Promise.all(
+    rooms.map(room =>
+      prisma.message.count({
+        where: {
+          chatRoomId: room.id,
+          isRead: false,
+          AND: [
+            {
+              OR: [
+                { senderUserId: null },
+                { senderUserId: { not: userId } }
+              ]
+            },
+            {
+              OR: [
+                { senderAdminId: null },
+                { senderAdminId: { not: userId } }
+              ]
+            },
+            {
+              OR: [
+                { senderBarberId: null },
+                { senderBarberId: { not: userId } }
+              ]
+            }
+          ]
+        }
+      })
+    )
+  );
 
-  // 2) Unread counts per room
-  const unreadGrouped = await prisma.message.groupBy({
-    by: ["chatRoomId"],
-    where: {
-      chatRoomId: { in: roomIds },
-      isRead: false,
-      NOT: [
-        { senderUserId: userId },
-        { senderAdminId: userId },
-        { senderBarberId: userId }
-      ]
-    },
-    _count: { _all: true }
-  });
+  const unreadMap = new Map(rooms.map((room, idx) => [room.id, unreadCounts[idx]]));
 
-  const unreadMap = new Map(unreadGrouped.map(g => [g.chatRoomId, g._count._all]));
+  console.log(unreadMap, 'unreadMap');
+
 
   // 3) Shape response
   return rooms.map(r => ({
     chatroomId: r.id,
     lastMessage: r.messages[0]?.content ?? null,
     lastMessageAt: r.messages[0]?.createdAt ?? r.updatedAt,
-    unread: unreadMap.get(r.id) || 0,
+    unread: unreadMap.get(r.id),
     user: r.user,
     admin: r.admin,
     barber: r.barber
   }));
 };
 
-const markRoomRead = async (userId, userType, chatroomId) => {
-  // Which sender column corresponds to "this user"?
-  let senderField;
-  if (userType === "USER") senderField = "senderUserId";
-  else if (userType === "ADMIN") senderField = "senderAdminId";
-  else if (userType === "BARBER") senderField = "senderBarberId";
-
-  // Only mark messages as read where this user is NOT the sender
-  await prisma.message.updateMany({
-    where: {
-      chatRoomId: chatroomId,
-      isRead: false,
-      OR: [
-        { AND: [{ senderUserId: { not: userId } }, { senderUserId: { not: null } }] },
-        { AND: [{ senderAdminId: { not: userId } }, { senderAdminId: { not: null } }] },
-        { AND: [{ senderBarberId: { not: userId } }, { senderBarberId: { not: null } }] }
-      ]
-    },
-    data: { isRead: true }
-  });
-
-}
 
 
 
@@ -329,6 +340,5 @@ module.exports = {
   sendMessage,
   getChatRoomData,
   getRoomsSummary,
-  markRoomRead
 
 }

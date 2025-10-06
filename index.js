@@ -104,7 +104,8 @@ adminSeed();
 
 
 io.use((socket, next) => {
-  const token = socket.handshake.headers?.['x-access-token'];
+  // Get the token from the socket handshake headers
+  const token = socket.handshake.headers["x-access-token"] || socket.handshake.headers["authorization"]?.split(" ")[1];
 
   if (!token) {
     console.log("Token missing in socket connection");
@@ -115,10 +116,7 @@ io.use((socket, next) => {
   try {
     const decoded = jwt.verify(token, process.env.SECRET_KEY); // your JWT secret
     socket.userId = decoded.id;
-    socket.userType = decoded.userType;
-    console.log(socket.userId, "userid");
-    console.log(socket.userType, "userType");
-
+    console.log(socket.userId, "userId");
 
     next();
   } catch (err) {
@@ -131,18 +129,44 @@ io.use((socket, next) => {
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
+  // normalise chatroom payloads coming from clients
+  const resolveChatRoomId = (payload = {}) =>
+    payload.chatroom ||
+    payload.chatroomId ||
+    payload.chatRoomId ||
+    payload.chatRoom ||
+    payload.chat_room ||
+    payload.id ||
+    null;
+
   // Join chatroom and personal socket
-  socket.on("joinRoom", (data) => {
-    console.log("User joined room:", data.chatroom);
-    socket.join(data.chatroom);                  // Join chat room
+  socket.on("joinRoom", (rawData) => {
+    const chatroomId = resolveChatRoomId(rawData);
+
+    console.log("User joined room:", chatroomId);
+
+    if (!chatroomId) {
+      return socket.emit("getRoom", {
+        status: "error",
+        message: "Chat room id is required"
+      });
+    }
+
+    socket.join(chatroomId);                  // Join chat room
     socket.join(socket.userId);                  // Join personal room
-    ChatRoomService.getChatRoomData(socket, data);               // Load chat room data
+    ChatRoomService.getChatRoomData(socket, { ...rawData, chatroom: chatroomId });               // Load chat room data
   });
 
-  socket.on("leaveRoom", ({ chatroom }) => {
-    socket.leave(chatroom);
+  socket.on("leaveRoom", (rawData = {}) => {
+    const chatroomId = resolveChatRoomId(rawData);
+
+    if (!chatroomId) {
+      return;
+    }
+
+    socket.leave(chatroomId);
     socket.leave(socket.userId);
-    console.log(`User left room ${chatroom}`);
+    console.log(`User left room ${chatroomId}`);
   });
 
   socket.on("sendMessage", (data) => {
@@ -158,26 +182,6 @@ io.on("connection", (socket) => {
       socket.emit("rooms:summary", { status: "error", message: "Failed to load summary" });
     }
   });
-
-  // --- When user opens a room list screen and wants to clear badges for a specific room
-  socket.on("rooms:markRead", async ({ chatroomId }) => {
-    try {
-      await ChatRoomService.markRoomRead(socket.userId, socket.userType, chatroomId);
-      // Push updated badges + summary
-      const summary = await ChatRoomService.getRoomsSummary(socket.userId);
-      io.to(socket.userId).emit("rooms:summary", { status: "success", data: summary });
-      // Optional fine-grained event for one room badge reset:
-      io.to(socket.userId).emit("rooms:badge:set", { chatroomId, unread: 0 });
-    } catch (e) {
-      socket.emit("rooms:badge:set", { status: "error", chatroomId, message: "Failed to mark as read" });
-    }
-  });
-
-  // Handle barber location updates
-  // socket.on('updateLocation', (locationData) => {
-  //   console.log('Barber location:', locationData);
-  //   socket.broadcast.emit('locationUpdate', locationData);
-  // });
 
 
   socket.on("disconnect", () => {
