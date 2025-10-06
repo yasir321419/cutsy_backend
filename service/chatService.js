@@ -20,7 +20,9 @@ const sendMessage = async (io, socket, data = {}) => {
     const { message } = data;
     const chatroomId = resolveChatRoomId(data);
     const senderId = socket.userId;
-    const senderType = socket.userType;
+    const senderType = typeof socket.userType === 'string'
+      ? socket.userType.toUpperCase()
+      : socket.userType;
 
     console.log(senderType, 'senderType');
 
@@ -193,27 +195,27 @@ const getChatRoomData = async (socket, data = {}) => {
     }
 
     // ✅ Mark unread messages as read where this user is not the sender
-    await prisma.message.updateMany({
+    const { count: markedAsRead } = await prisma.message.updateMany({
       where: {
         chatRoomId: chatroomId,
         isRead: false,
-        OR: [
+        AND: [
           {
-            AND: [
-              { senderUserId: { not: userId } },
-              { senderUserId: { not: null } }
+            OR: [
+              { senderUserId: null },
+              { senderUserId: { not: userId } }
             ]
           },
           {
-            AND: [
-              { senderAdminId: { not: userId } },
-              { senderAdminId: { not: null } }
+            OR: [
+              { senderAdminId: null },
+              { senderAdminId: { not: userId } }
             ]
           },
           {
-            AND: [
-              { senderBarberId: { not: userId } },
-              { senderBarberId: { not: null } }
+            OR: [
+              { senderBarberId: null },
+              { senderBarberId: { not: userId } }
             ]
           }
         ]
@@ -223,18 +225,32 @@ const getChatRoomData = async (socket, data = {}) => {
       }
     });
 
+    console.log(`Marked ${markedAsRead} messages as read for user ${userId} in room ${chatroomId}`);
+
     // 🔁 Optionally fetch updated messages (with isRead: true now)
-    const updatedChatRoomData = {
-      ...chatRoomData,
-      messages: chatRoomData.messages.map(msg => ({
-        ...msg,
-        isRead: true
-      }))
-    };
+    const refreshedMessages = await prisma.message.findMany({
+      where: { chatRoomId: chatroomId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      include: {
+        senderUser: {
+          select: { id: true, firstName: true, lastName: true, image: true }
+        },
+        senderAdmin: {
+          select: { id: true, name: true }
+        },
+        senderBarber: {
+          select: { id: true, name: true, image: true }
+        }
+      }
+    });
 
     return socket.emit("getRoom", {
       status: "success",
-      data: updatedChatRoomData
+      data: {
+        ...chatRoomData,
+        messages: refreshedMessages
+      }
     });
 
   } catch (err) {
