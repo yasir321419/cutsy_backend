@@ -20,9 +20,11 @@ const sendMessage = async (io, socket, data = {}) => {
     const { message } = data;
     const chatroomId = resolveChatRoomId(data);
     const senderId = socket.userId;
-    const senderType = typeof socket.userType === 'string'
-      ? socket.userType.toUpperCase()
-      : socket.userType;
+
+    console.log(senderId, 'senderid');
+
+    const senderType = socket.userType;
+
 
     console.log(senderType, 'senderType');
 

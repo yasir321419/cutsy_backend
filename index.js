@@ -116,6 +116,7 @@ io.use((socket, next) => {
   try {
     const decoded = jwt.verify(token, process.env.SECRET_KEY); // your JWT secret
     socket.userId = decoded.id;
+    socket.userType = decoded.userType;
     console.log(socket.userId, "userId");
 
     next();
