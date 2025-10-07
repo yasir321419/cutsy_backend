@@ -10,49 +10,49 @@ const { verifyUserToken } = require("../../middleware/auth");
 
 userBookingRouter.post(
   "/createBookingAndPayment",
-  limiter,
+  // limiter,
   verifyUserToken,
   userBookingController.createBookingAndPayment
 );
 
 userBookingRouter.get(
   "/showAppoinmentDetail/:bookingId",
-  limiter,
+  // limiter,
   verifyUserToken,
   userBookingController.showAppoinmentDetail
 );
 
 userBookingRouter.post(
   "/cancelAppointment/:bookingId",
-  limiter,
+  // limiter,
   verifyUserToken,
   userBookingController.cancelAppointment
 );
 
 userBookingRouter.get(
   "/trackBarber/:bookingId",
-  limiter,
+  // limiter,
   verifyUserToken,
   userBookingController.trackBarber
 );
 
 userBookingRouter.get(
   "/showInvoiceDetail/:bookingId",
-  limiter,
+  // limiter,
   verifyUserToken,
   userBookingController.showInvoiceDetail
 );
 
 userBookingRouter.get(
   "/showPaymentReceipt/:paymentIntentId",
-  limiter,
+  // limiter,
   verifyUserToken,
   userBookingController.showPaymentReceipt
 );
 
 userBookingRouter.post(
   "/submitReview",
-  limiter,
+  // limiter,
   verifyUserToken,
   userBookingController.submitReview
 );

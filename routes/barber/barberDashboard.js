@@ -9,28 +9,28 @@ const { verifyBarberToken } = require("../../middleware/auth");
 
 barberDashboardRouter.get(
   "/showLatestUpcomingAppoinment",
-  limiter,
+  // limiter,
   verifyBarberToken,
   barberDashboardController.showLatestUpcomingAppoinment
 );
 
 barberDashboardRouter.get(
   "/showAllUpcomingAppoinments",
-  limiter,
+  // limiter,
   verifyBarberToken,
   barberDashboardController.showAllUpcomingAppoinments
 );
 
 barberDashboardRouter.get(
   "/showAllStats",
-  limiter,
+  // limiter,
   verifyBarberToken,
   barberDashboardController.showAllStats
 );
 
 barberDashboardRouter.patch(
   "/onAndOffAvailableStatus",
-  limiter,
+  // limiter,
   verifyBarberToken,
   barberDashboardController.onAndOffAvailableStatus
 );

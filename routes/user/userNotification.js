@@ -11,7 +11,7 @@ const { userNotificationReadSchema, userAllNotificationSchema } = require("../..
 
 userNotificationRouter.get(
   "/showAllUserNotification",
-  limiter,
+  // limiter,
   verifyUserToken,
   validateRequest(userAllNotificationSchema),
   userNotificationController.showAllUserNotification
@@ -19,7 +19,7 @@ userNotificationRouter.get(
 
 userNotificationRouter.put(
   "/readUserNotification/:notificationId",
-  limiter,
+  // limiter,
   verifyUserToken,
   validateRequest(userNotificationReadSchema),
   userNotificationController.readUserNotification
@@ -27,7 +27,7 @@ userNotificationRouter.put(
 
 userNotificationRouter.put(
   "/onAndOffUserNotification",
-  limiter,
+  // limiter,
   verifyUserToken,
   userNotificationController.onAndOffUserNotification
 );

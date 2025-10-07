@@ -9,7 +9,7 @@ const { addBarberbusinessAccountSchema, verifyBarberbusinessAccountSchema, withD
 
 barberBusinessAccountRouter.post(
   "/completeOnboarding",
-  limiter,
+  // limiter,
   verifyBarberToken,
   barberBusinessAccountController.completeOnboarding
 );
@@ -17,7 +17,7 @@ barberBusinessAccountRouter.post(
 
 barberBusinessAccountRouter.post(
   "/addbarberBusinessAccount",
-  limiter,
+  // limiter,
   verifyBarberToken,
   validateRequest(addBarberbusinessAccountSchema),
   barberBusinessAccountController.addbarberBusinessAccount
@@ -25,14 +25,14 @@ barberBusinessAccountRouter.post(
 
 barberBusinessAccountRouter.get(
   "/showbarberBusinessAccount",
-  limiter,
+  // limiter,
   verifyBarberToken,
   barberBusinessAccountController.showbarberBusinessAccount
 );
 
 barberBusinessAccountRouter.get(
   "/verificationBarberBusinessAccount/:accountId",
-  limiter,
+  // limiter,
   verifyBarberToken,
   validateRequest(verifyBarberbusinessAccountSchema),
   barberBusinessAccountController.verificationBarberBusinessAccount
@@ -40,14 +40,14 @@ barberBusinessAccountRouter.get(
 
 barberBusinessAccountRouter.get(
   "/checkBarberBalance",
-  limiter,
+  // limiter,
   verifyBarberToken,
   barberBusinessAccountController.checkBarberBalance
 );
 
 barberBusinessAccountRouter.post(
   "/withDrawAmountBarber",
-  limiter,
+  // limiter,
   verifyBarberToken,
   validateRequest(withDrawAmountBarberSchema),
   barberBusinessAccountController.withDrawAmountBarber
@@ -55,7 +55,7 @@ barberBusinessAccountRouter.post(
 
 barberBusinessAccountRouter.get(
   "/showAllBarberTransactions",
-  limiter,
+  // limiter,
   verifyBarberToken,
   barberBusinessAccountController.showAllBarberTransactions
 );

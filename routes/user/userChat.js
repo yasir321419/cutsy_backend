@@ -11,7 +11,7 @@ const userCreateChatRoomSchema = require("../../schema/user/chat");
 
 userChatRouter.post(
   "/createChatRoom",
-  limiter,
+  // limiter,
   verifyMultiRoleToken,
   validateRequest(userCreateChatRoomSchema),
   userChatController.createChatRoom
@@ -19,7 +19,7 @@ userChatRouter.post(
 
 userChatRouter.get(
   "/getChatRoom",
-  limiter,
+  // limiter,
   verifyMultiRoleToken,
   userChatController.getChatRoom
 );

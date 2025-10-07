@@ -13,7 +13,7 @@ const isFileExists = require("../../middleware/isFileExist");
 
 barberAvailableHourRouter.post(
   "/addAvailableHour",
-  limiter,
+  // limiter,
   verifyBarberToken,
   validateRequest(addBarberAvailableHourSchema),
   barberAvilableHourController.addAvailableHour
@@ -21,14 +21,14 @@ barberAvailableHourRouter.post(
 
 barberAvailableHourRouter.get(
   "/showAvailableHour",
-  limiter,
+  // limiter,
   verifyBarberToken,
   barberAvilableHourController.showAvailableHour
 );
 
 barberAvailableHourRouter.put(
   "/editAvailableHour/:availableHoursId",
-  limiter,
+  // limiter,
   verifyBarberToken,
   validateRequest(editBarberAvailableHourSchema),
   barberAvilableHourController.editAvailableHour
@@ -36,7 +36,7 @@ barberAvailableHourRouter.put(
 
 barberAvailableHourRouter.delete(
   "/deleteAvailableHour/:availableHoursId",
-  limiter,
+  // limiter,
   verifyBarberToken,
   validateRequest(deleteBarberAvailableHourSchema),
   barberAvilableHourController.deleteAvailableHour
@@ -44,7 +44,7 @@ barberAvailableHourRouter.delete(
 
 barberAvailableHourRouter.post(
   "/barberSubmitDocument",
-  limiter,
+  // limiter,
   verifyBarberToken,
   handleMultiPartData.fields([
     { name: "drivingLicence", maxCount: 1 },

@@ -11,7 +11,7 @@ const userCreateAddressSchema = require("../../schema/user/address");
 
 userAddressRouter.post(
   "/saveUserAddress",
-  limiter,
+  // limiter,
   verifyUserToken,
   validateRequest(userCreateAddressSchema),
   userAddressController.saveUserAddress
@@ -19,7 +19,7 @@ userAddressRouter.post(
 
 userAddressRouter.get(
   "/showUserSaveAddress",
-  limiter,
+  // limiter,
   verifyUserToken,
   userAddressController.showUserSaveAddress
 );

@@ -11,21 +11,21 @@ const { userSearchBarberSchema, userSaveBarberInFavoriteSchema } = require("../.
 
 userHomeFeedRouter.get(
   "/showNearestBarbers",
-  limiter,
+  // limiter,
   verifyUserToken,
   userHomeFeedController.showNearestBarbers
 );
 
 userHomeFeedRouter.get(
   "/showTrendingBarbers",
-  limiter,
+  // limiter,
   verifyUserToken,
   userHomeFeedController.showTrendingBarbers
 );
 
 userHomeFeedRouter.get(
   "/showBarbersBySearchService",
-  limiter,
+  // limiter,
   verifyUserToken,
   validateRequest(userSearchBarberSchema),
   userHomeFeedController.showBarbersBySearchService
@@ -33,7 +33,7 @@ userHomeFeedRouter.get(
 
 userHomeFeedRouter.post(
   "/saveBarberInFavoriteList/:barberId",
-  limiter,
+  // limiter,
   verifyUserToken,
   validateRequest(userSaveBarberInFavoriteSchema),
   userHomeFeedController.saveBarberInFavoriteList
@@ -41,7 +41,7 @@ userHomeFeedRouter.post(
 
 userHomeFeedRouter.get(
   "/showBarberFavouriteList",
-  limiter,
+  // limiter,
   verifyUserToken,
   userHomeFeedController.showBarberFavouriteList
 );

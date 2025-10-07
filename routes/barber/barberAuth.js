@@ -103,7 +103,7 @@ barberAuthRouter.post(
 
 barberAuthRouter.get(
   "/getMe",
-  limiter,
+  // limiter,
   verifyBarberToken,
   barberAuthController.getMe
 );

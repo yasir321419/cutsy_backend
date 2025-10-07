@@ -11,28 +11,28 @@ const { trackUserSchema, startAppoinmentSchema } = require("../../schema/barber/
 
 barberAppoinmentHistoryRouter.get(
   "/showBarberUpComingAppoinment",
-  limiter,
+  // limiter,
   verifyBarberToken,
   barberAppoinmentHistoryController.showBarberUpComingAppoinment
 );
 
 barberAppoinmentHistoryRouter.get(
   "/showBarberOnGoingAppoinment",
-  limiter,
+  // limiter,
   verifyBarberToken,
   barberAppoinmentHistoryController.showBarberOnGoingAppoinment
 );
 
 barberAppoinmentHistoryRouter.get(
   "/showBarberPastAppoinment",
-  limiter,
+  // limiter,
   verifyBarberToken,
   barberAppoinmentHistoryController.showBarberPastAppoinment
 );
 
 barberAppoinmentHistoryRouter.post(
   "/trackUser/:bookingId",
-  limiter,
+  // limiter,
   verifyBarberToken,
   validateRequest(trackUserSchema),
   barberAppoinmentHistoryController.trackUser
@@ -40,7 +40,7 @@ barberAppoinmentHistoryRouter.post(
 
 barberAppoinmentHistoryRouter.post(
   "/StartAppoinment/:bookingId",
-  limiter,
+  // limiter,
   verifyBarberToken,
   validateRequest(startAppoinmentSchema),
   barberAppoinmentHistoryController.StartAppoinment

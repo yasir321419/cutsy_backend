@@ -11,7 +11,7 @@ const { userAddPaymentMethodSchema } = require("../../schema/user/payment");
 
 userPaymentMethodRouter.post(
   "/addPaymentMethod",
-  limiter,
+  // limiter,
   verifyUserToken,
   // validateRequest(userAddPaymentMethodSchema),
   userPaymentMethodController.addPaymentMethod
@@ -19,7 +19,7 @@ userPaymentMethodRouter.post(
 
 userPaymentMethodRouter.get(
   "/showPaymentMethods",
-  limiter,
+  // limiter,
   verifyUserToken,
   userPaymentMethodController.showPaymentMethods
 );

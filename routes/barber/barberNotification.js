@@ -11,7 +11,7 @@ const { barberNotificationReadSchema, barberAllNotificationSchema, barberAcceptR
 
 barberNotificationRouter.get(
   "/showAllBarberNotification",
-  limiter,
+  // limiter,
   verifyBarberToken,
   validateRequest(barberAllNotificationSchema),
   barberNotificationController.showAllBarberNotification
@@ -19,7 +19,7 @@ barberNotificationRouter.get(
 
 barberNotificationRouter.put(
   "/readBarberNotification/:notificationId",
-  limiter,
+  // limiter,
   verifyBarberToken,
   validateRequest(barberNotificationReadSchema),
   barberNotificationController.readBarberNotification
@@ -27,14 +27,14 @@ barberNotificationRouter.put(
 
 barberNotificationRouter.put(
   "/onAndOffBarberNotification",
-  limiter,
+  // limiter,
   verifyBarberToken,
   barberNotificationController.onAndOffBarberNotification
 );
 
 barberNotificationRouter.post(
   "/acceptBooking/:bookingId",
-  limiter,
+  // limiter,
   verifyBarberToken,
   validateRequest(barberAcceptRejectSchema),
   barberNotificationController.acceptBooking
@@ -42,7 +42,7 @@ barberNotificationRouter.post(
 
 barberNotificationRouter.post(
   "/rejectBooking/:bookingId",
-  limiter,
+  // limiter,
   verifyBarberToken,
   validateRequest(barberAcceptRejectSchema),
   barberNotificationController.rejectBooking

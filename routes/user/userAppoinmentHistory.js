@@ -9,21 +9,21 @@ const { verifyUserToken } = require("../../middleware/auth");
 
 userAppoinmentHistoryRouter.get(
   "/showUserUpComingAppoinment",
-  limiter,
+  // limiter,
   verifyUserToken,
   userAppoinmentHistoryController.showUserUpComingAppoinment
 );
 
 userAppoinmentHistoryRouter.get(
   "/showUserOngoingAppoinment",
-  limiter,
+  // limiter,
   verifyUserToken,
   userAppoinmentHistoryController.showUserOngoingAppoinment
 );
 
 userAppoinmentHistoryRouter.get(
   "/showUserPastAppoinment",
-  limiter,
+  // limiter,
   verifyUserToken,
   userAppoinmentHistoryController.showUserPastAppoinment
 );

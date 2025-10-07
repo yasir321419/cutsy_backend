@@ -11,7 +11,7 @@ const { addBarberServiceSchema, deleteBarberServiceSchema } = require("../../sch
 
 barberServiceRouter.post(
   "/addServices/:serviceId",
-  limiter,
+  // limiter,
   verifyBarberToken,
   validateRequest(addBarberServiceSchema),
   barberServiceController.addServices
@@ -19,14 +19,14 @@ barberServiceRouter.post(
 
 barberServiceRouter.get(
   "/showServices",
-  limiter,
+  // limiter,
   verifyBarberToken,
   barberServiceController.showServices
 );
 
 barberServiceRouter.put(
   "/editService/:serviceId",
-  limiter,
+  // limiter,
   verifyBarberToken,
   validateRequest(addBarberServiceSchema),
   barberServiceController.editService
@@ -34,7 +34,7 @@ barberServiceRouter.put(
 
 barberServiceRouter.delete(
   "/deleteService/:serviceId",
-  limiter,
+  // limiter,
   verifyBarberToken,
   validateRequest(deleteBarberServiceSchema),
   barberServiceController.deleteService
