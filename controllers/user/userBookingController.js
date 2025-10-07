@@ -7,13 +7,12 @@ const { ValidationError, NotFoundError, BadRequestError } = require("../../handl
 const { handlerOk } = require("../../handler/resHandler");
 const sendNotification = require("../../utils/notification");
 const { createPaymentIntent } = require("../../utils/stripeApis");
-const stripe = require("stripe")(process.env.STRIPE_KEY);
 
 
 
 
 
-const createBookingAndPayment = async (req, res, next) => {
+const createBooking = async (req, res, next) => {
   try {
     const {
       barberId,
@@ -390,13 +389,191 @@ const submitReview = async (req, res, next) => {
   }
 };
 
+// assumes: const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
+const makePayment = async (req, res, next) => {
+  try {
+    const { bookingId } = req.params;
+
+    const { amount } = req.body;
+
+    const parsedAmount = amount !== undefined ? Number(amount) : undefined;
+    if (parsedAmount !== undefined && (!Number.isFinite(parsedAmount) || parsedAmount <= 0)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid amount provided. Amount must be a positive number.",
+      });
+    }
+    const amountCents =
+      parsedAmount !== undefined ? Math.round(parsedAmount * 100) : null;
+
+    const findbooking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        services: true,
+        barber: { select: { id: true, name: true } },
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            customerId: true,
+          },
+        },
+      },
+    });
+
+    if (!findbooking) {
+      throw new NotFoundError("booking not found");
+    }
+
+    // ---- 1) Subtotal from services (in cents) ----
+    const subtotalCents = (findbooking.services || []).reduce((sum, s) => {
+      const price = Number(s.price || 0);
+      return sum + Math.round(price * 100);
+    }, 0);
+
+    if (subtotalCents <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No billable services found for this booking.",
+      });
+    }
+
+    // ---- 2) Stripe fee model ----
+    const feePercent = 0.029;       // 2.9%
+    const feeFixedCents = 30;       // $0.30
+
+    // Minimal gross needed so that (gross - fees) >= subtotal
+    const grossUpToNet = (netCents) => {
+      // initial guess
+      let gross = Math.ceil((netCents + feeFixedCents) / (1 - feePercent));
+      // bump until net >= target (handles rounding)
+      const netFrom = (g) => g - (Math.round(g * feePercent) + feeFixedCents);
+      while (netFrom(gross) < netCents) gross++;
+      return gross;
+    };
+
+    const requiredChargeCents = grossUpToNet(subtotalCents);
+
+    // If client sent a custom amount, validate it. Otherwise use requiredChargeCents
+    const chargeCents =
+      amountCents !== null && Number.isInteger(amountCents)
+        ? amountCents
+        : requiredChargeCents;
+
+    const calcStripeFees = (amtCents) =>
+      Math.round(amtCents * feePercent) + feeFixedCents;
+
+    const stripeFeesCents = calcStripeFees(chargeCents);
+    const netAfterFeesCents = chargeCents - stripeFeesCents;
+
+    if (netAfterFeesCents < subtotalCents) {
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient amount. To net $${(subtotalCents / 100).toFixed(2)} after Stripe fees, charge at least $${(requiredChargeCents / 100).toFixed(2)}.`,
+        expectedChargeCents: requiredChargeCents,
+        breakdown: {
+          subtotalCents,
+          attemptedChargeCents: chargeCents,
+          stripeFeesCents,
+          netAfterFeesCents,
+        },
+      });
+    }
+
+    // ---- 3) Create the PaymentIntent ----
+    const paymentIntent = await createPaymentIntent({
+      amount: chargeCents,
+      customer: findbooking.user?.customerId,
+      metadata: {
+        bookingId: findbooking.id,
+        userId: findbooking.userId,
+        subtotalCents: String(subtotalCents),
+        stripeFeesCents: String(stripeFeesCents),
+        netAfterFeesCents: String(netAfterFeesCents),
+      },
+      description: `Booking ${findbooking.id} — net to merchant $${(netAfterFeesCents / 100).toFixed(2)} on subtotal $${(subtotalCents / 100).toFixed(2)}`,
+    });
+
+    await prisma.payment.upsert({
+      where: { bookingId: findbooking.id },
+      update: {
+        amount: Number((netAfterFeesCents / 100).toFixed(2)),
+        totalAmount: Number((chargeCents / 100).toFixed(2)),
+        platformFee: Number((stripeFeesCents / 100).toFixed(2)),
+        status: "PENDING",
+        paymentMethod: "CARD",
+        paymentIntentId: paymentIntent.id,
+      },
+      create: {
+        bookingId: findbooking.id,
+        amount: Number((netAfterFeesCents / 100).toFixed(2)),
+        totalAmount: Number((chargeCents / 100).toFixed(2)),
+        platformFee: Number((stripeFeesCents / 100).toFixed(2)),
+        status: "PENDING",
+        paymentMethod: "CARD",
+        paymentIntentId: paymentIntent.id,
+      },
+    });
+
+    // (Optional) persist totals on booking for reporting
+    await prisma.booking.update({
+      where: { id: findbooking.id },
+      data: {
+        totalAmount: Number((chargeCents / 100).toFixed(2)),
+        amount: Number((netAfterFeesCents / 100).toFixed(2)),
+      },
+    });
+
+    const payerName = findbooking.user?.firstName
+
+    const chargeDisplay = (chargeCents / 100).toFixed(2);
+
+    await prisma.barberNotification.create({
+      data: {
+        barberId: findbooking.barberId,
+        bookingId: findbooking.id,
+        title: "💵 Payment received",
+        description: `${payerName} has completed a payment of $${chargeDisplay} for booking ${findbooking.id}. Please allow 7–8 business days to receive the payout after the owner’s commission is processed.`
+      },
+    });
+
+
+
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment intent created",
+      clientSecret: paymentIntent.client_secret,
+      charge: {
+        currency: paymentIntent.currency,
+        chargeCents,
+        stripeFeesCents,
+        netAfterFeesCents,
+        subtotalCents,
+        // For UI display
+        charge: (chargeCents / 100).toFixed(2),
+        fees: (stripeFeesCents / 100).toFixed(2),
+        netAfterFees: (netAfterFeesCents / 100).toFixed(2),
+        subtotal: (subtotalCents / 100).toFixed(2),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
 
 module.exports = {
-  createBookingAndPayment,
+  createBooking,
   showAppoinmentDetail,
   cancelAppointment,
   trackBarber,
   submitReview,
   showInvoiceDetail,
   showPaymentReceipt,
+  makePayment
 }

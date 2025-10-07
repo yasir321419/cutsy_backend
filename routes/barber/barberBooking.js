@@ -1,20 +1,39 @@
-// const limiter = require("../../middleware/limiter");
-// const validateRequest = require("../../middleware/validateRequest");
+const limiter = require("../../middleware/limiter");
+const validateRequest = require("../../middleware/validateRequest");
 
 
-// const barberBookingRouter = require("express").Router();
-// const barberBookingController = require("../../controllers/barber/barberBookingController");
-// const { verifyBarberToken } = require("../../middleware/auth");
-// const handleMultiPartData = require("../../middleware/handleMultiPartData");
-// const { trackUserSchema } = require("../../schema/barber/booking");
+const barberBookingRouter = require("express").Router();
+const barberBookingController = require("../../controllers/barber/barberBookingController");
+const { verifyBarberToken } = require("../../middleware/auth");
+const { completedBookingSchema } = require("../../schema/barber/booking");
+const { barberAcceptRejectSchema } = require("../../schema/barber/notification");
 
 
-// barberBookingRouter.post(
-//   "/trackUser/:bookingId",
-//   limiter,
-//   verifyBarberToken,
-//   validateRequest(trackUserSchema),
-//   barberBookingController.trackUser
-// );
+barberBookingRouter.post(
+  "/acceptBooking/:bookingId",
+  // limiter, 
+  verifyBarberToken,
+  validateRequest(barberAcceptRejectSchema),
+  barberBookingController.acceptBooking
+);
 
-// module.exports = barberBookingRouter;
+barberBookingRouter.post(
+  "/rejectBooking/:bookingId",
+  // limiter,
+  verifyBarberToken,
+  validateRequest(barberAcceptRejectSchema),
+  barberBookingController.rejectBooking
+);
+
+
+barberBookingRouter.post(
+  "/completedBooking/:bookingId",
+  limiter,
+  verifyBarberToken,
+  validateRequest(completedBookingSchema),
+  barberBookingController.completedBooking
+);
+
+
+
+module.exports = barberBookingRouter;

@@ -13,12 +13,21 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
 
   try {
     // Update Payment table with the successful payment
+    const amountReceivedCents = typeof paymentIntent.amount_received === "number"
+      ? paymentIntent.amount_received
+      : paymentIntent.amount;
+
+    const paymentUpdateData = {
+      status: 'PAID',
+    };
+
+    if (typeof amountReceivedCents === 'number') {
+      paymentUpdateData.totalAmount = Number((amountReceivedCents / 100).toFixed(2));
+    }
+
     await prisma.payment.update({
       where: { paymentIntentId: paymentId },
-      data: {
-        paymentStatus: 'PAID',
-        totalAmount: amountReceived,
-      }
+      data: paymentUpdateData
     });
 
     // Update Booking table as well
@@ -45,7 +54,7 @@ const handlePaymentIntentPaymentFailed = async (paymentIntent) => {
     await prisma.payment.update({
       where: { paymentIntentId: paymentId },
       data: {
-        paymentStatus: 'FAILED',
+        status: 'CANCELLED',
       }
     });
 

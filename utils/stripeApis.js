@@ -180,18 +180,29 @@ const createPaymentIntent = async ({
   amount,
   customer,
   metadata,  // New metadata parameter
+  currency = "usd",
+  description,
 }) => {
   try {
-    const paymentIntent = await stripe.paymentIntents.create({
+    const payload = {
       amount, // already in cents
-      currency: "usd",
-      customer,
+      currency,
       automatic_payment_methods: {
         enabled: true,
         allow_redirects: "never", // avoids return_url requirement
       },
       metadata,
-    });
+    };
+
+    if (customer) {
+      payload.customer = customer;
+    }
+
+    if (description) {
+      payload.description = description;
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create(payload);
 
     // DO NOT confirm here — let the client confirm using the client_secret
     return paymentIntent;

@@ -6,6 +6,7 @@ const barberBusinessAccountRouter = require("./barberBusinessAccount");
 const barberAppoinmentHistoryRouter = require("./barberAppoinmentHistory");
 const barberDashboardRouter = require("./barberDashboard");
 const barberNotificationRouter = require("./barberNotification");
+const barberBookingRouter = require("./barberBooking");
 
 barberRouter.use("/auth", barberAuthRouter);
 barberRouter.use("/service", barberServiceRouter);
@@ -14,6 +15,8 @@ barberRouter.use("/businessaccount", barberBusinessAccountRouter);
 barberRouter.use("/appoinmenthistory", barberAppoinmentHistoryRouter);
 barberRouter.use("/dashboard", barberDashboardRouter);
 barberRouter.use("/notification", barberNotificationRouter);
+barberRouter.use("/booking", barberBookingRouter);
+
 
 
 

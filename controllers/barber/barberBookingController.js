@@ -1,107 +1,147 @@
-// const showBarberBooking = async (req, res, next) => {
-//   const { barberId } = req.params;
-
-//   try {
-//     const bookings = await prisma.booking.findMany({
-//       where: { barberId },
-//       include: {
-//         services: true,
-//         user: true,
-//       },
-//     });
-//     return res.status(200).json(bookings);
-//   } catch (error) {
-//     console.error(error);
-//     return res.status(500).json({ message: 'Error fetching bookings' });
-//   }
-// }
-
-// const trackUser = async (req, res, next) => {
-//   try {
-//     const { bookingId } = req.params;
-//     const { userLatitude, userLongitude, barberLatitude, barberLongitude, status } = req.body; // Data from frontend
 
 
-//     // First check if tracking already exists
-//     let existingTracking = await prisma.bookingTracking.findFirst({
-//       where: {
-//         bookingId: bookingId,
-//       },
-//     });
+const prisma = require("../../config/prismaConfig");
+const { NotFoundError, ValidationError } = require("../../handler/CustomError");
+const { handlerOk } = require("../../handler/resHandler");
 
-//     // If no tracking record exists, create a new one
-//     if (!existingTracking) {
-//       const createdTracking = await prisma.bookingTracking.create({
-//         data: {
-//           bookingId: bookingId,
-//           lat: userLatitude, // User's latitude
-//           lng: userLongitude, // User's longitude
-//           barberLat: barberLatitude, // Barber's latitude (sent from frontend)
-//           barberLng: barberLongitude, // Barber's longitude (sent from frontend)
-//           status: status, // Status from frontend (e.g., "On the way")
-//           timestamp: new Date(),
-//         },
-//       });
 
-//       return handlerOk(res, 200, {
-//         status: "Tracking started",
-//         userLat: userLatitude,
-//         userLng: userLongitude,
-//         barberLat: barberLatitude,
-//         barberLng: barberLongitude,
-//         status: status,
-//       }, "Tracking created successfully");
-//     }
+const acceptBooking = async (req, res, next) => {
+  try {
+    const { bookingId } = req.params;
+    const { id, name } = req.user;
+    const findbooking = await prisma.booking.findUnique({
+      where: {
+        id: bookingId
+      }
+    });
 
-//     // If tracking record exists, update it with new information
-//     const updatedTracking = await prisma.bookingTracking.update({
-//       where: {
-//         id: existingTracking.id,
-//       },
-//       data: {
-//         lat: userLatitude, // Updated user latitude
-//         lng: userLongitude, // Updated user longitude
-//         barberLat: barberLatitude, // Updated barber latitude
-//         barberLng: barberLongitude, // Updated barber longitude
-//         status: status, // Updated status
-//         timestamp: new Date(),
-//       },
-//     });
+    if (!findbooking) {
+      throw new NotFoundError("booking not found")
+    }
 
-//     // Optionally update the booking status with the status from frontend
-//     const updatedBooking = await prisma.booking.update({
-//       where: {
-//         id: bookingId,
-//       },
-//       data: {
-//         status: status, // Update booking status with status from frontend
-//       },
-//     });
+    await prisma.booking.update({
+      where: {
+        id: findbooking.id
+      },
+      data: {
+        isAccepted: true,
+        status: "ACCEPTED"
+      }
+    });
 
-//     // Update payment status if needed
-//     // const updatedPayment = await prisma.payment.update({
-//     //   where: {
-//     //     bookingId: bookingId,
-//     //   },
-//     //   data: {
-//     //     status: status, // Update payment status based on booking status
-//     //   },
-//     // });
+    await prisma.userNotification.create({
+      data: {
+        userId: findbooking.userId,
+        bookingId: findbooking.id,       // link to booking
+        title: "🎉 Accept Booking",
+        description: `${name} accept an appointment with you on ${findbooking.day} at ${findbooking.startTime} - ${findbooking.endTime}.`,
+      },
+    });
 
-//     handlerOk(res, 200, {
-//       status: "Tracking updated successfully",
-//       userLat: userLatitude,
-//       userLng: userLongitude,
-//       barberLat: barberLatitude,
-//       barberLng: barberLongitude,
-//       status: status,
-//     }, "Tracking updated successfully");
 
-//   } catch (error) {
-//     next(error);
-//   }
-// };
+    handlerOk(res, 200, null, "booking accepted successfully")
+
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+
+const rejectBooking = async (req, res, next) => {
+  try {
+    const { bookingId } = req.params;
+    const { name } = req.user || {};
+
+    // 1) Ensure booking exists
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        userId: true,
+        barberId: true,
+        day: true,
+        startTime: true,
+        endTime: true,
+      },
+    });
+    if (!booking) throw new NotFoundError("booking not found");
+
+    // 2) Do everything atomically in the correct order
+    await prisma.$transaction(async (tx) => {
+      // 2a) Create notification FIRST (while booking still exists)
+      await tx.userNotification.create({
+        data: {
+          userId: booking.userId,
+          bookingId: booking.id, // FK OK because booking still exists
+          title: "❌ Booking Rejected",
+          description: `${name || "Barber"} rejected your appointment on ${booking.day} at ${booking.startTime} – ${booking.endTime}.`,
+        },
+      });
+
+      // 2b) Delete children
+      await tx.bookingService.deleteMany({ where: { bookingId } });
+
+      // 2c) Delete parent booking
+      await tx.booking.delete({ where: { id: bookingId } });
+    });
+
+    handlerOk(res, 200, null, "booking rejected successfully");
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+const completedBooking = async (req, res, next) => {
+  try {
+
+    const { bookingId } = req.params;
+    const { name } = req.user;
+    const findbooking = await prisma.booking.findUnique({
+      where: {
+        id: bookingId
+      }
+    });
+
+    if (!findbooking) {
+      throw new NotFoundError("booking not found")
+    }
+
+    const complete = await prisma.booking.update({
+      where: {
+        id: findbooking.id
+      },
+      data: {
+        status: "COMPLETED"
+      }
+    });
+
+    if (!complete) {
+      throw new ValidationError("booking not complete")
+    }
+
+    await prisma.userNotification.create({
+      data: {
+        userId: findbooking.userId,
+        bookingId: findbooking.id,       // link to booking
+        title: "🎉 Completed Booking",
+        description: `${name} has completed your appointment on ${findbooking.day} from ${findbooking.startTime}–${findbooking.endTime}. Please make the payment for this booking.`,
+      },
+    });
+
+
+    handlerOk(res, 200, complete, "booking completed successully");
+
+  } catch (error) {
+    next(error)
+  }
+}
+
 
 module.exports = {
-  // trackUser
+  completedBooking,
+  acceptBooking,
+  rejectBooking
 }

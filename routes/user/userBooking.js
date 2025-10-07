@@ -9,10 +9,10 @@ const { verifyUserToken } = require("../../middleware/auth");
 
 
 userBookingRouter.post(
-  "/createBookingAndPayment",
+  "/createBooking",
   // limiter,
   verifyUserToken,
-  userBookingController.createBookingAndPayment
+  userBookingController.createBooking
 );
 
 userBookingRouter.get(
@@ -55,6 +55,13 @@ userBookingRouter.post(
   // limiter,
   verifyUserToken,
   userBookingController.submitReview
+);
+
+userBookingRouter.post(
+  "/makePayment/:bookingId",
+  // limiter,
+  verifyUserToken,
+  userBookingController.makePayment
 );
 
 module.exports = userBookingRouter

@@ -300,8 +300,8 @@ model BarberService{
 model BarberAvailableHour{
   id             String      @id @default(uuid())
   day       WeekDay
-  startTime String   // e.g., "09:00"
-  endTime   String   // e.g., "18:00"
+  startTime DateTime?   
+  endTime   DateTime ? 
   createdById  String
   createdBy    Barber     @relation(fields: [createdById], references: [id])
 }

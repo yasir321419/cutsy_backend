@@ -32,20 +32,5 @@ barberNotificationRouter.put(
   barberNotificationController.onAndOffBarberNotification
 );
 
-barberNotificationRouter.post(
-  "/acceptBooking/:bookingId",
-  // limiter,
-  verifyBarberToken,
-  validateRequest(barberAcceptRejectSchema),
-  barberNotificationController.acceptBooking
-);
-
-barberNotificationRouter.post(
-  "/rejectBooking/:bookingId",
-  // limiter,
-  verifyBarberToken,
-  validateRequest(barberAcceptRejectSchema),
-  barberNotificationController.rejectBooking
-);
 
 module.exports = barberNotificationRouter;

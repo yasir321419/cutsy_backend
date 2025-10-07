@@ -11,14 +11,28 @@ const addAvailableHour = async (req, res, next) => {
     const { id, deviceToken, name } = req.user;
     const { starttime, endtime, day } = req.body;
 
+    // Parse into Date objects
+    const startUTC = new Date(starttime);
+    const endUTC = new Date(endtime);
+
+    if (!(startUTC instanceof Date) || isNaN(startUTC)) {
+      throw new BadRequestError("Invalid startTime");
+    }
+    if (!(endUTC instanceof Date) || isNaN(endUTC)) {
+      throw new BadRequestError("Invalid endTime");
+    }
+    if (endUTC <= startUTC) {
+      throw new BadRequestError("endTime must be after startTime");
+    }
+
     const existAvailableHour = await prisma.barberAvailableHour.findFirst({
       where: {
         day,
         startTime: {
-          lt: endtime
+          lt: endUTC
         },
         endTime: {
-          gt: starttime
+          gt: startUTC
         },
         createdById: id
       }
@@ -31,8 +45,8 @@ const addAvailableHour = async (req, res, next) => {
     const createAvailableHour = await prisma.barberAvailableHour.create({
       data: {
         day,
-        startTime: starttime,
-        endTime: endtime,
+        startTime: startUTC,
+        endTime: endUTC,
         createdById: id
       }
     });
@@ -82,6 +96,20 @@ const editAvailableHour = async (req, res, next) => {
     const { availableHoursId } = req.params;
     const { starttime, endtime, day } = req.body;
 
+    // Parse into Date objects
+    const startUTC = new Date(starttime);
+    const endUTC = new Date(endtime);
+
+    if (!(startUTC instanceof Date) || isNaN(startUTC)) {
+      throw new BadRequestError("Invalid startTime");
+    }
+    if (!(endUTC instanceof Date) || isNaN(endUTC)) {
+      throw new BadRequestError("Invalid endTime");
+    }
+    if (endUTC <= startUTC) {
+      throw new BadRequestError("endTime must be after startTime");
+    }
+
     const findavailablehours = await prisma.barberAvailableHour.findUnique({
       where: {
         id: availableHoursId
@@ -98,8 +126,8 @@ const editAvailableHour = async (req, res, next) => {
         createdById: id
       },
       data: {
-        startTime: starttime,
-        endTime: endtime,
+        startTime: startUTC,
+        endTime: endUTC,
         day: day
       }
     });
