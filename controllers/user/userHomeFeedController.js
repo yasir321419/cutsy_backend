@@ -1,6 +1,20 @@
 const prisma = require("../../config/prismaConfig");
 const { NotFoundError, ConflictError, ValidationError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
+const { serializeAvailabilitySlot } = require("../../utils/timeSlot");
+
+const normalizeBarberAvailability = (barber) => {
+  if (!barber) return barber;
+
+  const availability = Array.isArray(barber.BarberAvailableHour)
+    ? barber.BarberAvailableHour.map(serializeAvailabilitySlot)
+    : [];
+
+  return {
+    ...barber,
+    BarberAvailableHour: availability,
+  };
+};
 
 const showNearestBarbers = async (req, res, next) => {
   try {
@@ -49,7 +63,9 @@ const showNearestBarbers = async (req, res, next) => {
 
 
 
-    handlerOk(res, 200, barbers, "nearest barbers found successfully")
+    const normalizedBarbers = barbers.map(normalizeBarberAvailability);
+
+    handlerOk(res, 200, normalizedBarbers, "nearest barbers found successfully")
   } catch (error) {
     next(error)
   }
@@ -91,7 +107,9 @@ const showBarbersBySearchService = async (req, res, next) => {
       throw new NotFoundError("No barbers found with the given search.");
     }
 
-    handlerOk(res, 200, barbers, "barbers found successfully");
+    const normalizedBarbers = barbers.map(normalizeBarberAvailability);
+
+    handlerOk(res, 200, normalizedBarbers, "barbers found successfully");
 
   } catch (error) {
     next(error)
@@ -183,7 +201,12 @@ const showBarberFavouriteList = async (req, res, next) => {
       throw new NotFoundError("favorite list is empty")
     }
 
-    handlerOk(res, 200, showfavoritelist, "favorite list found successfully")
+    const normalizedFavorites = showfavoritelist.map((favorite) => ({
+      ...favorite,
+      barber: normalizeBarberAvailability(favorite.barber),
+    }));
+
+    handlerOk(res, 200, normalizedFavorites, "favorite list found successfully")
   } catch (error) {
     next(error)
   }
@@ -249,7 +272,9 @@ const showTrendingBarbers = async (req, res, next) => {
     //   };
     // });
 
-    handlerOk(res, 200, showallbarber, "trending barbers fetched successfully");
+    const normalizedBarbers = showallbarber.map(normalizeBarberAvailability);
+
+    handlerOk(res, 200, normalizedBarbers, "trending barbers fetched successfully");
   } catch (error) {
     next(error);
   }

@@ -12,6 +12,20 @@ const generateOtpExpiry = require("../../utils/verifyOtp");
 const { v4: uuidv4 } = require('uuid');
 const path = require("path");
 const uploadFileWithFolder = require("../../utils/s3Upload");
+const { serializeAvailabilitySlot } = require("../../utils/timeSlot");
+
+const attachAvailabilityLabels = (barber) => {
+  if (!barber) return barber;
+
+  const availability = Array.isArray(barber.BarberAvailableHour)
+    ? barber.BarberAvailableHour.map(serializeAvailabilitySlot)
+    : [];
+
+  return {
+    ...barber,
+    BarberAvailableHour: availability,
+  };
+};
 
 
 const singUp = async (req, res, next) => {
@@ -252,8 +266,9 @@ const login = async (req, res, next) => {
       totalReviews: totalReviews
     }
 
+    const normalizedBarber = attachAvailabilityLabels(finduser);
 
-    handlerOk(res, 200, { ...finduser, ...response }, "barber login successfully")
+    handlerOk(res, 200, { ...normalizedBarber, ...response }, "barber login successfully")
 
   } catch (error) {
     next(error)
@@ -703,7 +718,9 @@ const getMe = async (req, res, next) => {
       totalReviews: totalReviews
     }
 
-    handlerOk(res, 200, { ...barber, ...response }, "barber found successfully");
+    const normalizedBarber = attachAvailabilityLabels(barber);
+
+    handlerOk(res, 200, { ...normalizedBarber, ...response }, "barber found successfully");
 
   } catch (error) {
     next(error)

@@ -1,4 +1,5 @@
 const prisma = require("../config/prismaConfig");
+const admin = require("../config/firebaseConfig");
 
 
 
@@ -14,6 +15,42 @@ const resolveChatRoomId = (payload = {}) =>
   payload.id ||
   null;
 
+
+const getSenderDisplayName = (messageRecord) => {
+  if (messageRecord?.senderUser) {
+    const { firstName, lastName } = messageRecord.senderUser;
+    const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+    return fullName || "User";
+  }
+
+  if (messageRecord?.senderBarber) {
+    return messageRecord.senderBarber.name || "Barber";
+  }
+
+  if (messageRecord?.senderAdmin) {
+    return messageRecord.senderAdmin.name || messageRecord.senderAdmin.email || "Admin";
+  }
+
+  return "Someone";
+};
+
+const buildChatParticipants = (chatRoomData) => [
+  {
+    id: chatRoomData.userId,
+    type: "USER",
+    profile: chatRoomData.user,
+  },
+  {
+    id: chatRoomData.adminId,
+    type: "ADMIN",
+    profile: chatRoomData.admin,
+  },
+  {
+    id: chatRoomData.barberId,
+    type: "BARBER",
+    profile: chatRoomData.barber,
+  },
+].filter((participant) => Boolean(participant.id));
 
 const sendMessage = async (io, socket, data = {}) => {
   try {
@@ -101,28 +138,111 @@ const sendMessage = async (io, socket, data = {}) => {
     });
 
     // Emit message to all participants
-    const participants = [chatRoomData.userId, chatRoomData.adminId, chatRoomData.barberId].filter(Boolean);
+    const participants = buildChatParticipants(chatRoomData);
 
-    for (const participantId of participants) {
-      io.to(participantId).emit("message", {
+    const trimmedContent = message.trim();
+    const messagePreview =
+      trimmedContent.length > 120
+        ? `${trimmedContent.slice(0, 117)}...`
+        : trimmedContent;
+    const senderDisplayName = getSenderDisplayName(newMessage);
+    const notificationTitle = "New chat message";
+    const notificationBody = `${senderDisplayName}: ${messagePreview}`;
+
+    const notificationJobs = [];
+    const pushJobs = [];
+
+    for (const participant of participants) {
+      io.to(participant.id).emit("message", {
         status: "success",
         message: "Message sent successfully",
         data: newMessage
       });
 
       try {
-        const summary = await getRoomsSummary(participantId);
-        io.to(participantId).emit("rooms:summary", {
+        const summary = await getRoomsSummary(participant.id);
+        io.to(participant.id).emit("rooms:summary", {
           status: "success",
           data: summary
         });
       } catch (summaryErr) {
         console.error("rooms:summary refresh error:", summaryErr);
-        io.to(participantId).emit("rooms:summary", {
+        io.to(participant.id).emit("rooms:summary", {
           status: "error",
           message: "Failed to refresh summary"
         });
       }
+
+      if (participant.id === senderId) {
+        continue;
+      }
+
+      if (participant.type === "USER") {
+        notificationJobs.push({
+          // type: participant.type,
+          id: participant.id,
+          promise: prisma.userNotification.create({
+            data: {
+              userId: participant.id,
+              title: notificationTitle,
+              description: notificationBody
+            }
+          })
+        });
+      } else if (participant.type === "BARBER") {
+        notificationJobs.push({
+          // type: participant.type,
+          id: participant.id,
+          promise: prisma.barberNotification.create({
+            data: {
+              barberId: participant.id,
+              title: notificationTitle,
+              description: notificationBody
+            }
+          })
+        });
+      }
+
+      const deviceToken = participant.profile?.deviceToken;
+      if (deviceToken) {
+        pushJobs.push({
+          // type: participant.type,
+          id: participant.id,
+          promise: admin.messaging().send({
+            token: deviceToken,
+            notification: {
+              title: notificationTitle,
+              body: notificationBody
+            },
+            data: {
+              chatRoomId: chatroomId,
+              messageId: newMessage.id,
+              senderId,
+              senderType
+            }
+          })
+        });
+      }
+    }
+
+    if (notificationJobs.length) {
+      const results = await Promise.allSettled(notificationJobs.map((job) => job.promise));
+      results.forEach((result, index) => {
+        if (result.status === "rejected") {
+          const { type, id } = notificationJobs[index];
+          console.error(`Failed to persist ${type} chat notification for ${id}:`, result.reason);
+        }
+      });
+    }
+
+    if (pushJobs.length) {
+      const results = await Promise.allSettled(pushJobs.map((job) => job.promise));
+      results.forEach((result, index) => {
+        if (result.status === "rejected") {
+          const { type, id } = pushJobs[index];
+          console.error(`Failed to send push notification to ${type} ${id}:`, result.reason);
+        }
+      });
     }
 
   } catch (err) {

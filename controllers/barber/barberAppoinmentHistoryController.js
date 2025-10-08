@@ -2,27 +2,28 @@ const prisma = require("../../config/prismaConfig");
 const { NotFoundError, ValidationError, ConflictError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
 
+const UPCOMING_STATUSES = ["PENDING", "ACCEPTED"];
+const ONGOING_STATUSES = ["ACCEPTED", "ARRIVED", "STARTED"];
+const TERMINAL_STATUSES = ["CANCELLED", "COMPLETED", "PAID"];
+
 const showBarberUpComingAppoinment = async (req, res, next) => {
   try {
     const { id } = req.user;
 
     const nowUtc = new Date();
-
-    console.log(nowUtc);
-
+    console.log(nowUtc, 'nowUtc');
     const upcomingappoinment = await prisma.booking.findMany({
       where: {
         barberId: id,
-        status: {
-          in: ["ACCEPTED", "PENDING"]
-        },
-        startTime: {
-          gt: nowUtc
-        }
+        status: { in: UPCOMING_STATUSES },
+        startTime: { gt: nowUtc }
       },
       include: {
         user: true,
         services: true
+      },
+      orderBy: {
+        startTime: "asc"
       }
     });
 
@@ -43,20 +44,19 @@ const showBarberOnGoingAppoinment = async (req, res, next) => {
 
     const nowUtc = new Date();
 
-    console.log(nowUtc);
-
     const ongoingappoinment = await prisma.booking.findMany({
       where: {
         barberId: id,
-        status: {
-          in: ["ACCEPTED", "ARRIVED", "STARTED"]
-        },
-        startTime: { lte: nowUtc },     // started
-        // endTime: { gt: nowUtc },   xs
+        status: { in: ONGOING_STATUSES },
+        startTime: { lte: nowUtc },
+        endTime: { gte: nowUtc }
       },
       include: {
         user: true,
         services: true
+      },
+      orderBy: {
+        startTime: "asc"
       }
     });
 
@@ -80,15 +80,17 @@ const showBarberPastAppoinment = async (req, res, next) => {
     const pastappoinment = await prisma.booking.findMany({
       where: {
         barberId: id,
-        status: {
-          in: ["CANCELLED", "COMPLETED", "PAID"]
-        },
-        endTime: { lt: nowUtc },
-
+        OR: [
+          { status: { in: TERMINAL_STATUSES } },
+          { endTime: { lt: nowUtc } }
+        ],
       },
       include: {
         user: true,
         services: true
+      },
+      orderBy: {
+        startTime: "desc"
       }
 
     });

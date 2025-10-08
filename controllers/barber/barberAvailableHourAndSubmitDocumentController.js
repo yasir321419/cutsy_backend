@@ -1,70 +1,59 @@
 const prisma = require("../../config/prismaConfig");
-const { ValidationError, ConflictError, NotFoundError } = require("../../handler/CustomError");
+const { BadRequestError, ValidationError, ConflictError, NotFoundError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
 const sendNotification = require("../../utils/notification");
 const uploadFileWithFolder = require("../../utils/s3Upload");
 const { v4: uuidv4 } = require('uuid');
 const path = require("path");
+const {
+  parseTimeInputToMinutes,
+  minutesToUtcDate,
+  extractMinutesFromStoredValue,
+  serializeAvailabilitySlot,
+} = require("../../utils/timeSlot");
 
 const addAvailableHour = async (req, res, next) => {
   try {
-    const { id, deviceToken, name } = req.user;
+    const { id } = req.user;
     const { starttime, endtime, day } = req.body;
 
-    // Parse into Date objects
-    const startUTC = new Date(starttime);
-    const endUTC = new Date(endtime);
+    const startMinutes = parseTimeInputToMinutes(starttime, "startTime");
+    const endMinutes = parseTimeInputToMinutes(endtime, "endTime");
 
-    if (!(startUTC instanceof Date) || isNaN(startUTC)) {
-      throw new BadRequestError("Invalid startTime");
-    }
-    if (!(endUTC instanceof Date) || isNaN(endUTC)) {
-      throw new BadRequestError("Invalid endTime");
-    }
-    if (endUTC <= startUTC) {
+    if (endMinutes <= startMinutes) {
       throw new BadRequestError("endTime must be after startTime");
     }
 
-    const existAvailableHour = await prisma.barberAvailableHour.findFirst({
+    const existingSlots = await prisma.barberAvailableHour.findMany({
       where: {
         day,
-        startTime: {
-          lt: endUTC
-        },
-        endTime: {
-          gt: startUTC
-        },
-        createdById: id
-      }
+        createdById: id,
+      },
     });
 
-    if (existAvailableHour) {
-      throw new ConflictError("available hour already exist");
+    const overlaps = existingSlots.some((slot) => {
+      const slotStart = extractMinutesFromStoredValue(slot.startTime);
+      const slotEnd = extractMinutesFromStoredValue(slot.endTime);
+      if (slotStart === null || slotEnd === null) {
+        return false;
+      }
+      return slotStart < endMinutes && slotEnd > startMinutes;
+    });
+
+    if (overlaps) {
+      throw new ConflictError("Available hour overlaps with an existing slot");
     }
 
-    const createAvailableHour = await prisma.barberAvailableHour.create({
+    const created = await prisma.barberAvailableHour.create({
       data: {
         day,
-        startTime: startUTC,
-        endTime: endUTC,
-        createdById: id
-      }
+        startTime: minutesToUtcDate(startMinutes),
+        endTime: minutesToUtcDate(endMinutes),
+        createdById: id,
+      },
     });
 
-    if (!createAvailableHour) {
-      throw new ValidationError("available hour not created");
-    }
-
-    // await sendNotification(
-    //   id,
-    //   deviceToken,
-    //   `Hi ${name}, your available hours have been successfully added to your profile.`
-    // );
-
-
-    handlerOk(res, 200, createAvailableHour, "available hour created successfully");
-
-
+    handlerOk(res, 200, serializeAvailabilitySlot(created), "available hour created successfully");
   } catch (error) {
     next(error)
   }
@@ -84,7 +73,9 @@ const showAvailableHour = async (req, res, next) => {
       throw new NotFoundError("available hour not found");
     }
 
-    handlerOk(res, 200, findavailablehour, "available hour found successfully")
+    const formatted = findavailablehour.map(serializeAvailabilitySlot);
+
+    handlerOk(res, 200, formatted, "available hour found successfully")
   } catch (error) {
     next(error)
   }
@@ -96,20 +87,6 @@ const editAvailableHour = async (req, res, next) => {
     const { availableHoursId } = req.params;
     const { starttime, endtime, day } = req.body;
 
-    // Parse into Date objects
-    const startUTC = new Date(starttime);
-    const endUTC = new Date(endtime);
-
-    if (!(startUTC instanceof Date) || isNaN(startUTC)) {
-      throw new BadRequestError("Invalid startTime");
-    }
-    if (!(endUTC instanceof Date) || isNaN(endUTC)) {
-      throw new BadRequestError("Invalid endTime");
-    }
-    if (endUTC <= startUTC) {
-      throw new BadRequestError("endTime must be after startTime");
-    }
-
     const findavailablehours = await prisma.barberAvailableHour.findUnique({
       where: {
         id: availableHoursId
@@ -120,23 +97,52 @@ const editAvailableHour = async (req, res, next) => {
       throw new NotFoundError("available hours not found")
     }
 
+    if (findavailablehours.createdById !== id) {
+      throw new NotFoundError("available hours not found")
+    }
+
+    const startMinutes = parseTimeInputToMinutes(starttime, "startTime");
+    const endMinutes = parseTimeInputToMinutes(endtime, "endTime");
+
+    if (endMinutes <= startMinutes) {
+      throw new BadRequestError("endTime must be after startTime");
+    }
+
+    const clashSlots = await prisma.barberAvailableHour.findMany({
+      where: {
+        createdById: id,
+        day,
+        NOT: {
+          id: availableHoursId
+        }
+      }
+    });
+
+    const overlaps = clashSlots.some((slot) => {
+      const slotStart = extractMinutesFromStoredValue(slot.startTime);
+      const slotEnd = extractMinutesFromStoredValue(slot.endTime);
+      if (slotStart === null || slotEnd === null) {
+        return false;
+      }
+      return slotStart < endMinutes && slotEnd > startMinutes;
+    });
+
+    if (overlaps) {
+      throw new ConflictError("Available hour overlaps with an existing slot");
+    }
+
     const updateavailableHours = await prisma.barberAvailableHour.update({
       where: {
-        id: findavailablehours.id,
-        createdById: id
+        id: findavailablehours.id
       },
       data: {
-        startTime: startUTC,
-        endTime: endUTC,
+        startTime: minutesToUtcDate(startMinutes),
+        endTime: minutesToUtcDate(endMinutes),
         day: day
       }
     });
 
-    if (!updateavailableHours) {
-      throw new ValidationError("available hours not update")
-    }
-
-    handlerOk(res, 200, updateavailableHours, "available hours updated successfully");
+    handlerOk(res, 200, serializeAvailabilitySlot(updateavailableHours), "available hours updated successfully");
 
   } catch (error) {
     next(error)
@@ -154,20 +160,15 @@ const deleteAvailableHour = async (req, res, next) => {
       }
     });
 
-    if (!findavailablehours) {
+    if (!findavailablehours || findavailablehours.createdById !== id) {
       throw new NotFoundError("available hours not found")
     }
 
-    const deleteavailableHours = await prisma.barberAvailableHour.delete({
+    await prisma.barberAvailableHour.delete({
       where: {
-        id: findavailablehours.id,
-        createdById: id
+        id: findavailablehours.id
       }
     });
-
-    if (!deleteavailableHours) {
-      throw new ValidationError("available hours not delete")
-    }
 
     handlerOk(res, 200, null, "available hours deleted successfully");
 

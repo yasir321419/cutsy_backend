@@ -7,6 +7,7 @@ const { ValidationError, NotFoundError, BadRequestError } = require("../../handl
 const { handlerOk } = require("../../handler/resHandler");
 const sendNotification = require("../../utils/notification");
 const { createPaymentIntent } = require("../../utils/stripeApis");
+const { extractMinutesFromStoredValue } = require("../../utils/timeSlot");
 
 
 
@@ -30,6 +31,7 @@ const createBooking = async (req, res, next) => {
     // ---------- Validation ----------
     if (!barberId) throw new BadRequestError("barberId is required");
     if (!startTime || !endTime) throw new BadRequestError("startTime and endTime are required");
+    if (!day) throw new BadRequestError("day is required");
     if (!Array.isArray(services) || services.length === 0) {
       throw new BadRequestError("At least one service is required");
     }
@@ -70,7 +72,45 @@ const createBooking = async (req, res, next) => {
       .map((sid) => serviceIndex.get(sid))
       .filter(Boolean);
 
-    // ---------- 3) Overlap check ----------
+    const normalizedDay = typeof day === "string" ? day.toUpperCase() : day;
+    const allowedDays = new Set(["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]);
+    if (!allowedDays.has(normalizedDay)) {
+      throw new BadRequestError("day must be a valid weekday code");
+    }
+
+    const startMinutesOfDay = extractMinutesFromStoredValue(startUTC);
+    const endMinutesOfDay = extractMinutesFromStoredValue(endUTC);
+
+    if (startMinutesOfDay === null || endMinutesOfDay === null) {
+      throw new BadRequestError("Unable to derive appointment time");
+    }
+
+    // ---------- 3) Ensure availability window exists ----------
+    const availabilityWindows = await prisma.barberAvailableHour.findMany({
+      where: {
+        createdById: findbarber.id,
+        day: normalizedDay,
+      },
+    });
+
+    if (availabilityWindows.length === 0) {
+      throw new BadRequestError("Barber is not available on the selected day");
+    }
+
+    const withinAvailability = availabilityWindows.some((slot) => {
+      const slotStart = extractMinutesFromStoredValue(slot.startTime);
+      const slotEnd = extractMinutesFromStoredValue(slot.endTime);
+      if (slotStart === null || slotEnd === null) {
+        return false;
+      }
+      return slotStart <= startMinutesOfDay && slotEnd >= endMinutesOfDay;
+    });
+
+    if (!withinAvailability) {
+      throw new BadRequestError("Selected time is outside the barber's available hours");
+    }
+
+    // ---------- 4) Overlap check ----------
     const existing = await prisma.booking.findFirst({
       where: {
         barberId: findbarber.id,
@@ -83,12 +123,12 @@ const createBooking = async (req, res, next) => {
       throw new BadRequestError("Selected time conflicts with another booking.");
     }
 
-    // ---------- 4) Create booking ----------
+    // ---------- 5) Create booking ----------
     const booking = await prisma.booking.create({
       data: {
         userId,
         barberId: findbarber.id,
-        day,
+        day: normalizedDay,
         startTime: startUTC, // direct UTC datetime
         endTime: endUTC,
         locationName,
@@ -106,7 +146,7 @@ const createBooking = async (req, res, next) => {
 
     if (!booking) throw new ValidationError("Booking creation failed");
 
-    // ---------- 5) Create barber notification ----------
+    // ---------- 6) Create barber notification ----------
     await prisma.barberNotification.create({
       data: {
         barberId: findbarber.id,
@@ -116,7 +156,7 @@ const createBooking = async (req, res, next) => {
       },
     });
 
-    // ---------- 6) Return ----------
+    // ---------- 7) Return ----------
     return handlerOk(res, 200, { booking }, "Booking created successfully");
   } catch (error) {
     next(error);

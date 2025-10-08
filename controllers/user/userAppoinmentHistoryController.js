@@ -3,28 +3,30 @@ const { NotFoundError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
 
 
+const UPCOMING_STATUSES = ["PENDING", "ACCEPTED"];
+const ONGOING_STATUSES = ["ACCEPTED", "ARRIVED", "STARTED"];
+const TERMINAL_STATUSES = ["CANCELLED", "COMPLETED", "PAID"];
+
 const showUserUpComingAppoinment = async (req, res, next) => {
   try {
     const { id } = req.user;
 
     const nowUtc = new Date();
 
-    console.log(nowUtc);
-
+    console.log(nowUtc, 'nowUtc');
 
     const upcomingAppointment = await prisma.booking.findMany({
       where: {
         userId: id,
-        // status: "PENDING",
-        // in: ["ACCEPTED"],
-        status: {
-          in: ['ACCEPTED']
-        },
+        status: { in: UPCOMING_STATUSES },
         startTime: { gt: nowUtc },
       },
       include: {
         barber: true,
         services: true,
+      },
+      orderBy: {
+        startTime: "asc"
       },
     });
 
@@ -45,21 +47,20 @@ const showUserOngoingAppoinment = async (req, res, next) => {
 
     const nowUtc = new Date();
 
-    console.log(nowUtc);
-
 
     const ongoingappoinment = await prisma.booking.findMany({
       where: {
         userId: id,
-        status: {
-          in: ["ARRIVED", "STARTED"]
-        },
-        startTime: { lte: nowUtc },     // started
-        // endTime: { gt: nowUtc },
+        status: { in: ONGOING_STATUSES },
+        startTime: { lte: nowUtc },
+        endTime: { gte: nowUtc },
       },
       include: {
         barber: true,
         services: true
+      },
+      orderBy: {
+        startTime: "asc"
       }
     });
 
@@ -80,20 +81,21 @@ const showUserPastAppoinment = async (req, res, next) => {
 
     const nowUtc = new Date();
 
-    console.log(nowUtc);
-
 
     const pastappoinment = await prisma.booking.findMany({
       where: {
         userId: id,
-        status: {
-          in: ["CANCELLED", "COMPLETED", "PAID"]
-        },
-        endTime: { lt: nowUtc },
+        OR: [
+          { status: { in: TERMINAL_STATUSES } },
+          { endTime: { lt: nowUtc } }
+        ],
       },
       include: {
         barber: true,
         services: true
+      },
+      orderBy: {
+        startTime: "desc"
       }
     });
 
