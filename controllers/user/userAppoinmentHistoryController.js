@@ -1,5 +1,4 @@
 const prisma = require("../../config/prismaConfig");
-const { NotFoundError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
 
 
@@ -12,8 +11,6 @@ const showUserUpComingAppoinment = async (req, res, next) => {
     const { id } = req.user;
 
     const nowUtc = new Date();
-
-    console.log(nowUtc, 'nowUtc');
 
     const upcomingAppointment = await prisma.booking.findMany({
       where: {
@@ -30,10 +27,6 @@ const showUserUpComingAppoinment = async (req, res, next) => {
       },
     });
 
-    if (upcomingAppointment.length === 0) {
-      throw new NotFoundError("No upcoming appointment found");
-    }
-
     handlerOk(res, 200, upcomingAppointment, "Upcoming appointment found successfully");
 
   } catch (error) {
@@ -47,7 +40,7 @@ const showUserOngoingAppoinment = async (req, res, next) => {
 
     const nowUtc = new Date();
 
-
+    console.log(nowUtc, 'now')
     const ongoingappoinment = await prisma.booking.findMany({
       where: {
         userId: id,
@@ -64,10 +57,6 @@ const showUserOngoingAppoinment = async (req, res, next) => {
       }
     });
 
-    if (ongoingappoinment.length === 0) {
-      throw new NotFoundError("No ongoing appoinment found")
-    }
-
     handlerOk(res, 200, ongoingappoinment, "ongoing appoinment found successfully")
 
   } catch (error) {
@@ -81,12 +70,14 @@ const showUserPastAppoinment = async (req, res, next) => {
 
     const nowUtc = new Date();
 
-
     const pastappoinment = await prisma.booking.findMany({
       where: {
         userId: id,
         OR: [
-          { status: { in: TERMINAL_STATUSES } },
+          {
+            status: { in: TERMINAL_STATUSES },
+            startTime: { lte: nowUtc }
+          },
           { endTime: { lt: nowUtc } }
         ],
       },
@@ -98,10 +89,6 @@ const showUserPastAppoinment = async (req, res, next) => {
         startTime: "desc"
       }
     });
-
-    if (pastappoinment.length === 0) {
-      throw new NotFoundError("No past appoinment found")
-    }
 
     handlerOk(res, 200, pastappoinment, "past appoinment found successfully");
 

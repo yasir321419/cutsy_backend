@@ -3,6 +3,12 @@
 const prisma = require("../../config/prismaConfig");
 const { NotFoundError, ValidationError } = require("../../handler/CustomError");
 const { handlerOk } = require("../../handler/resHandler");
+const { DateTime } = require("luxon");
+
+const formatRangeLabel = (date) => {
+  if (!date) return "N/A";
+  return DateTime.fromJSDate(date).toUTC().toFormat("MMM dd yyyy HH:mm 'UTC'");
+};
 
 
 const acceptBooking = async (req, res, next) => {
@@ -29,12 +35,15 @@ const acceptBooking = async (req, res, next) => {
       }
     });
 
+    const startLabel = formatRangeLabel(findbooking.startTime);
+    const endLabel = formatRangeLabel(findbooking.endTime);
+
     await prisma.userNotification.create({
       data: {
         userId: findbooking.userId,
         bookingId: findbooking.id,       // link to booking
         title: "🎉 Accept Booking",
-        description: `${name} accept an appointment with you on ${findbooking.day} at ${findbooking.startTime} - ${findbooking.endTime}.`,
+        description: `${name} accepted your appointment on ${findbooking.day} from ${startLabel} to ${endLabel}.`,
       },
     });
 
@@ -70,12 +79,15 @@ const rejectBooking = async (req, res, next) => {
     // 2) Do everything atomically in the correct order
     await prisma.$transaction(async (tx) => {
       // 2a) Create notification FIRST (while booking still exists)
+      const startLabel = formatRangeLabel(booking.startTime);
+      const endLabel = formatRangeLabel(booking.endTime);
+
       await tx.userNotification.create({
         data: {
           userId: booking.userId,
           bookingId: booking.id, // FK OK because booking still exists
           title: "❌ Booking Rejected",
-          description: `${name || "Barber"} rejected your appointment on ${booking.day} at ${booking.startTime} – ${booking.endTime}.`,
+          description: `${name || "Barber"} rejected your appointment on ${booking.day} from ${startLabel} to ${endLabel}.`,
         },
       });
 
@@ -122,12 +134,15 @@ const completedBooking = async (req, res, next) => {
       throw new ValidationError("booking not complete")
     }
 
+    const startLabel = formatRangeLabel(findbooking.startTime);
+    const endLabel = formatRangeLabel(findbooking.endTime);
+
     await prisma.userNotification.create({
       data: {
         userId: findbooking.userId,
         bookingId: findbooking.id,       // link to booking
         title: "🎉 Completed Booking",
-        description: `${name} has completed your appointment on ${findbooking.day} from ${findbooking.startTime}–${findbooking.endTime}. Please make the payment for this booking.`,
+        description: `${name} completed your appointment on ${findbooking.day} from ${startLabel} to ${endLabel}. Please complete the payment.`,
       },
     });
 

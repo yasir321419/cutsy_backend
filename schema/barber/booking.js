@@ -11,7 +11,7 @@ const trackUserSchema = Joi.object({
     userLongitude: Joi.number().required(),
     barberLatitude: Joi.number().required(),
     barberLongitude: Joi.number().required(),
-    status: Joi.string().required(),
+    status: Joi.string().optional(),
   }),
 });
 const completedBookingSchema = Joi.object({

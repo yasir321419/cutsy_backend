@@ -8,6 +8,8 @@ const { handlerOk } = require("../../handler/resHandler");
 const sendNotification = require("../../utils/notification");
 const { createPaymentIntent } = require("../../utils/stripeApis");
 const { extractMinutesFromStoredValue } = require("../../utils/timeSlot");
+const { DateTime } = require("luxon");
+const tzLookup = require("tz-lookup");
 
 
 
@@ -36,25 +38,59 @@ const createBooking = async (req, res, next) => {
       throw new BadRequestError("At least one service is required");
     }
 
-    // Parse into Date objects
-    const startUTC = new Date(startTime);
-    const endUTC = new Date(endTime);
-
-    if (!(startUTC instanceof Date) || isNaN(startUTC)) {
-      throw new BadRequestError("Invalid startTime");
-    }
-    if (!(endUTC instanceof Date) || isNaN(endUTC)) {
-      throw new BadRequestError("Invalid endTime");
-    }
-    if (endUTC <= startUTC) {
-      throw new BadRequestError("endTime must be after startTime");
-    }
-
     // Coerce and validate lat/lng as numbers
     const latNum = locationLat !== undefined ? Number(locationLat) : undefined;
     const lngNum = locationLng !== undefined ? Number(locationLng) : undefined;
     if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
       throw new BadRequestError("locationLat and locationLng must be valid numbers");
+    }
+
+    let appointmentZone;
+    try {
+      appointmentZone = tzLookup(latNum, lngNum);
+    } catch (err) {
+      appointmentZone = null;
+    }
+
+    const parseDateTimes = (value, label) => {
+      const isoString = typeof value === "string" ? value : null;
+      const hasExplicitOffset = isoString ? /([+-]\d{2}:?\d{2}|Z)$/i.test(isoString) : false;
+
+      let localDateTime;
+
+      if (hasExplicitOffset) {
+        localDateTime = DateTime.fromISO(value, { setZone: true });
+      } else if (appointmentZone) {
+        localDateTime = DateTime.fromISO(value, { zone: appointmentZone });
+      } else {
+        localDateTime = DateTime.fromISO(value, { setZone: true });
+      }
+
+      if (!localDateTime.isValid) {
+        const fallbackNative = new Date(value);
+        if (!Number.isNaN(fallbackNative.getTime())) {
+          localDateTime = DateTime.fromJSDate(fallbackNative);
+          if (appointmentZone) {
+            localDateTime = localDateTime.setZone(appointmentZone);
+          }
+        }
+      }
+
+      if (!localDateTime || !localDateTime.isValid) {
+        throw new BadRequestError(`Invalid ${label}`);
+      }
+
+      return {
+        local: localDateTime,
+        utc: localDateTime.toUTC().toJSDate(),
+      };
+    };
+
+    const { local: startLocal, utc: startUTC } = parseDateTimes(startTime, "startTime");
+    const { local: endLocal, utc: endUTC } = parseDateTimes(endTime, "endTime");
+
+    if (endUTC <= startUTC) {
+      throw new BadRequestError("endTime must be after startTime");
     }
 
     // ---------- 1) Find barber ----------
@@ -78,8 +114,8 @@ const createBooking = async (req, res, next) => {
       throw new BadRequestError("day must be a valid weekday code");
     }
 
-    const startMinutesOfDay = extractMinutesFromStoredValue(startUTC);
-    const endMinutesOfDay = extractMinutesFromStoredValue(endUTC);
+    const startMinutesOfDay = startLocal.hour * 60 + startLocal.minute;
+    const endMinutesOfDay = endLocal.hour * 60 + endLocal.minute;
 
     if (startMinutesOfDay === null || endMinutesOfDay === null) {
       throw new BadRequestError("Unable to derive appointment time");
@@ -152,7 +188,7 @@ const createBooking = async (req, res, next) => {
         barberId: findbarber.id,
         bookingId: booking.id,
         title: "🎉 New Booking",
-        description: `${firstName} booked an appointment with you from ${startUTC.toISOString()} to ${endUTC.toISOString()}.`,
+        description: `${firstName} booked an appointment with you from ${startLocal.toFormat("yyyy-LL-dd HH:mm")} to ${endLocal.toFormat("yyyy-LL-dd HH:mm")}.`,
       },
     });
 
@@ -170,7 +206,7 @@ const showAppoinmentDetail = async (req, res, next) => {
       where: {
         id: bookingId,
         status: {
-          in: ['PENDING', 'ACCEPTED']
+          in: ['PENDING', 'ACCEPTED', 'STARTED']
         }
       },
       include: {

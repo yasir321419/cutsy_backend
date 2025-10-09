@@ -11,7 +11,9 @@ const showBarberUpComingAppoinment = async (req, res, next) => {
     const { id } = req.user;
 
     const nowUtc = new Date();
-    console.log(nowUtc, 'nowUtc');
+
+    console.log(nowUtc, 'now')
+
     const upcomingappoinment = await prisma.booking.findMany({
       where: {
         barberId: id,
@@ -27,10 +29,6 @@ const showBarberUpComingAppoinment = async (req, res, next) => {
       }
     });
 
-    if (upcomingappoinment.length === 0) {
-      throw new NotFoundError("no upcoming appoinment found")
-    }
-
     handlerOk(res, 200, upcomingappoinment, "upcoming appoinment found successfully")
 
   } catch (error) {
@@ -42,7 +40,11 @@ const showBarberOnGoingAppoinment = async (req, res, next) => {
   try {
     const { id } = req.user;
 
+
+
     const nowUtc = new Date();
+
+    console.log(nowUtc, 'now')
 
     const ongoingappoinment = await prisma.booking.findMany({
       where: {
@@ -59,10 +61,6 @@ const showBarberOnGoingAppoinment = async (req, res, next) => {
         startTime: "asc"
       }
     });
-
-    if (ongoingappoinment.length === 0) {
-      throw new NotFoundError("ongoing appoinment not found")
-    }
 
     handlerOk(res, 200, ongoingappoinment, "ongoing appoinment found successfully");
 
@@ -81,7 +79,10 @@ const showBarberPastAppoinment = async (req, res, next) => {
       where: {
         barberId: id,
         OR: [
-          { status: { in: TERMINAL_STATUSES } },
+          {
+            status: { in: TERMINAL_STATUSES },
+            startTime: { lte: nowUtc }
+          },
           { endTime: { lt: nowUtc } }
         ],
       },
@@ -94,10 +95,6 @@ const showBarberPastAppoinment = async (req, res, next) => {
       }
 
     });
-
-    if (pastappoinment.length === 0) {
-      throw new NotFoundError("past appoinment not found")
-    }
 
     handlerOk(res, 200, pastappoinment, "past appoinement found successfully");
   } catch (error) {
