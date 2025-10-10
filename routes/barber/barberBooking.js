@@ -34,6 +34,14 @@ barberBookingRouter.post(
   barberBookingController.completedBooking
 );
 
+barberBookingRouter.get(
+  "/showAllPaymentReciept",
+  limiter,
+  verifyBarberToken,
+  barberBookingController.showAllPaymentReciept
+);
+
+
 
 
 module.exports = barberBookingRouter;

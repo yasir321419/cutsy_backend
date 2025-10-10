@@ -665,6 +665,49 @@ const userCreateProfile = async (req, res, next) => {
   }
 }
 
+const getMe = async (req, res, next) => {
+  try {
+    const { id } = req.user;
+    const finduser = await prisma.user.findUnique({
+      where: {
+        id
+      },
+      include: {
+        Booking: true,
+        UserAddress: true
+      }
+    });
+
+    handlerOk(res, 200, finduser, "user found successfully")
+  } catch (error) {
+    next(error)
+  }
+}
+
+
+const updateLocation = async (req, res, next) => {
+  try {
+    const { id } = req.user;
+    const { userLatitude, userLongitude } = req.body;
+    const updatelatlong = await prisma.user.update({
+      where: {
+        id
+      },
+      data: {
+        latitude: userLatitude,
+        longitude: userLongitude
+      }
+    });
+
+    if (!updatelatlong) {
+      throw new ValidationError("lat long not update")
+    }
+
+    handlerOk(res, 200, updatelatlong, "lat long updated successfully")
+  } catch (error) {
+    next(error)
+  }
+}
 
 module.exports = {
   signUp,
@@ -678,6 +721,8 @@ module.exports = {
   deleteAccount,
   socialLogin,
   resendOtp,
-  userCreateProfile
+  userCreateProfile,
+  getMe,
+  updateLocation
 }
 

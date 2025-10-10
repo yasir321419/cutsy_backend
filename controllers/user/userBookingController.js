@@ -206,7 +206,7 @@ const showAppoinmentDetail = async (req, res, next) => {
       where: {
         id: bookingId,
         status: {
-          in: ['PENDING', 'ACCEPTED', 'STARTED']
+          in: ['PENDING', 'ACCEPTED', 'STARTED', 'COMPLETED']
         }
       },
       include: {

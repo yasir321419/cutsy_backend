@@ -81,8 +81,42 @@ const showUserSaveAddress = async (req, res, next) => {
   }
 }
 
+const deleteUserAddress = async (req, res, next) => {
+  try {
+    const { addressId } = req.params;
+
+
+    const finduseraddress = await prisma.userAddress.findUnique({
+      where: {
+        id: addressId
+      }
+    });
+
+    if (!finduseraddress) {
+      throw new NotFoundError("user address not found")
+    }
+
+
+    const deleteuseraddress = await prisma.userAddress.delete({
+      where: {
+        id: finduseraddress.id
+      }
+    });
+
+    if (!deleteuseraddress) {
+      throw new ValidationError("user address not delete")
+    }
+
+    handlerOk(res, 200, null, "user address deleted successfully");
+
+  } catch (error) {
+    next(error)
+  }
+}
+
 
 module.exports = {
   saveUserAddress,
-  showUserSaveAddress
+  showUserSaveAddress,
+  deleteUserAddress
 }

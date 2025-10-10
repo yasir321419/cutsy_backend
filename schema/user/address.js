@@ -16,4 +16,16 @@ const userCreateAddressSchema = Joi.object({
   }),
 });
 
-module.exports = userCreateAddressSchema;
+
+const userDeleteAddressSchema = Joi.object({
+  query: Joi.object({}),
+  params: Joi.object({
+    addressId: Joi.string().required()
+  }),
+  body: Joi.object({
+
+  }),
+});
+
+
+module.exports = { userCreateAddressSchema, userDeleteAddressSchema };

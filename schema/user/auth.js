@@ -148,6 +148,17 @@ const userCreateProfileSchema = Joi.object({
   }),
 });
 
+const userUpdateLatLongSchema = Joi.object({
+  query: Joi.object({}),
+  params: Joi.object({}),
+  body: Joi.object({
+
+    userLatitude: Joi.number().min(-90).max(90).required(),
+    userLongitude: Joi.number().min(-180).max(180).required(),
+
+  }),
+});
+
 module.exports = {
   userRegisterSchema,
   userverifyOtpSchema,
@@ -158,5 +169,6 @@ module.exports = {
   userChangePasswordSchema,
   userSocailLoginSchema,
   userCreateProfileSchema,
-  userResendOtpSchema
+  userResendOtpSchema,
+  userUpdateLatLongSchema
 }

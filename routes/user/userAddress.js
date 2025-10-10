@@ -5,7 +5,7 @@ const validateRequest = require("../../middleware/validateRequest");
 const userAddressRouter = require("express").Router();
 const userAddressController = require("../../controllers/user/userSaveAddressController");
 const { verifyUserToken } = require("../../middleware/auth");
-const userCreateAddressSchema = require("../../schema/user/address");
+const { userCreateAddressSchema, userDeleteAddressSchema } = require("../../schema/user/address");
 
 
 
@@ -23,5 +23,15 @@ userAddressRouter.get(
   verifyUserToken,
   userAddressController.showUserSaveAddress
 );
+
+userAddressRouter.delete(
+  "/deleteUserAddress/:addressId",
+  // limiter,
+  verifyUserToken,
+  validateRequest(userDeleteAddressSchema),
+  userAddressController.deleteUserAddress
+);
+
+
 
 module.exports = userAddressRouter;

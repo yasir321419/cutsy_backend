@@ -154,9 +154,32 @@ const completedBooking = async (req, res, next) => {
   }
 }
 
+const showAllPaymentReciept = async (req, res, next) => {
+  try {
+
+    const { id } = req.user;
+    const findpaymentreciepts = await prisma.payment.findMany({
+      include: {
+        booking: true
+      }
+    });
+
+    if (findpaymentreciepts.length === 0) {
+      throw new NotFoundError("payment recipts not found")
+    }
+
+    const barberpayment = findpaymentreciepts.filter((payment) => payment.booking.barberId === id);
+
+    handlerOk(res, 200, findpaymentreciepts, "payment recipts found successfully")
+  } catch (error) {
+    next(error)
+  }
+}
+
 
 module.exports = {
   completedBooking,
   acceptBooking,
-  rejectBooking
+  rejectBooking,
+  showAllPaymentReciept
 }

@@ -210,7 +210,11 @@ const withDrawAmountBarber = async (req, res, next) => {
 
     // Calculate total available balance
 
-    const availableBalance = balance.instant_available[0].amount;
+    console.log(balance, 'balance')
+
+    // return ''
+
+    const availableBalance = balance.available[0].amount;
 
     if (amountInCents > availableBalance) {
       throw new BadRequestError("Insufficient balance");

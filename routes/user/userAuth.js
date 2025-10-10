@@ -4,7 +4,7 @@ const validateRequest = require("../../middleware/validateRequest");
 
 const userAuthRouter = require("express").Router();
 const userAuthController = require("../../controllers/user/userAuthController");
-const { userRegisterSchema, userverifyOtpSchema, userLoginSchema, userForgetPasswordSchema, userResetPasswordSchema, userEditProfileSchema, userChangePasswordSchema, userSocailLoginSchema, userCreateProfileSchema, userResendOtpSchema } = require("../../schema/user/auth");
+const { userRegisterSchema, userverifyOtpSchema, userLoginSchema, userForgetPasswordSchema, userResetPasswordSchema, userEditProfileSchema, userChangePasswordSchema, userSocailLoginSchema, userCreateProfileSchema, userResendOtpSchema, userUpdateLatLongSchema } = require("../../schema/user/auth");
 const { verifyUserToken } = require("../../middleware/auth");
 const handleMultiPartData = require("../../middleware/handleMultiPartData");
 
@@ -99,6 +99,21 @@ userAuthRouter.post(
   limiter,
   validateRequest(userResendOtpSchema),
   userAuthController.resendOtp
+);
+
+userAuthRouter.get(
+  "/getMe",
+  limiter,
+  verifyUserToken,
+  userAuthController.getMe
+);
+
+userAuthRouter.post(
+  "/updateLocation",
+  limiter,
+  verifyUserToken,
+  validateRequest(userUpdateLatLongSchema),
+  userAuthController.updateLocation
 );
 
 
