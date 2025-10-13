@@ -45,8 +45,10 @@ const verifyConnectedAccount = async (accountId) => {
   try {
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
-      refresh_url: "http://localhost:4000/api/v1/reauth",
-      return_url: `http://localhost:4000/api/v1/success/${accountId}`,
+      refresh_url: "http://3.96.154.115:4000/api/v1/reauth",
+      return_url: `http://3.96.154.115:4000/api/v1/success/${accountId}`,
+      // refresh_url: "http://localhost:4000/api/v1/reauth",
+      // return_url: `http://localhost:4000/api/v1/success/${accountId}`,
       type: "account_onboarding",
     });
     return accountLink.url;
