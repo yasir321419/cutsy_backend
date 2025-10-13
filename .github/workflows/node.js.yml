@@ -103,7 +103,7 @@ jobs:
         run: npm ci --loglevel=verbose --foreground-scripts
 
       # 6) Build + Prisma (generate + migrate)
-      - name: Build & Prisma migrate (safe)
+      - name: Build & Prisma migrate
         env:
           # Prisma reads from .env for DATABASE_URL
           PRISMA_HIDE_UPDATE_MESSAGE: "true"
@@ -115,23 +115,8 @@ jobs:
           echo "=== prisma generate ==="
           npx prisma generate
 
-          # One-time, idempotent: record existing migrations as applied if the target DB has no history yet.
-          echo "=== prisma baseline resolve (best-effort) ==="
-          # Best-effort baseline so existing production databases gain Prisma migration history without wiping data
-          set +e  # Allow the discovery probe to fail without aborting the job
-          npx prisma db execute --schema prisma/schema.prisma --command "SHOW TABLES LIKE '_prisma_migrations';" | grep -q '_prisma_migrations'
-          HAS_MIGRATION_HISTORY=$?
-          set -e
-          if [ "$HAS_MIGRATION_HISTORY" -eq 0 ]; then
-            echo "Prisma migration history already present; skipping baseline resolve."
-          else
-            echo "No migration history detected; marking existing migrations as applied for baseline."
-            for MIGRATION_PATH in prisma/migrations/*/; do
-              MIGRATION_NAME="$(basename "$MIGRATION_PATH")"
-              echo "Marking migration $MIGRATION_NAME as applied (best-effort baseline)."
-              npx prisma migrate resolve --applied "$MIGRATION_NAME" || true
-            done
-          fi
+          echo "=== prisma migrate status ==="
+          npx prisma migrate status --schema prisma/schema.prisma
 
           echo "=== prisma migrate deploy ==="
           npx prisma migrate deploy
