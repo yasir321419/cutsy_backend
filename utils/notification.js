@@ -14,7 +14,15 @@ const sendNotification = async (userId, deviceToken, title, body) => {
     const response = await admin.messaging().send(message);
     console.log('Notification sent:', response);
 
-    await prisma.notification.create({
+    await prisma.userNotification.create({
+      data: {
+        userId,
+        title,
+        description: body
+      }
+    });
+
+    await prisma.barberNotification.create({
       data: {
         userId,
         title,
