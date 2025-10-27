@@ -111,7 +111,7 @@ adminSeed();
 
 io.use((socket, next) => {
   // Get the token from the socket handshake headers
-  const token = socket.handshake.headers["x-access-token"] || socket.handshake.headers["authorization"]?.split(" ")[1];
+  const token = socket.handshake.headers["x-access-token"] || socket.handshake.headers["authorization"]?.split(" ")[1] || socket.handshake.query.token || socket.handshake.query['x-access-token'];
 
   if (!token) {
     console.log("Token missing in socket connection");
