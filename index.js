@@ -13,7 +13,13 @@ const adminSeed = require('./seeder/adminseed');
 const socketIo = require("socket.io");
 const http = require("http");
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+  cors: {
+    origin: ["https://your-frontend-domain.com", "http://localhost:3000"],
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
 const ChatRoomService = require("./service/chatService");
 const jwt = require("jsonwebtoken");
 const stripe = require("stripe");// ← You need this
