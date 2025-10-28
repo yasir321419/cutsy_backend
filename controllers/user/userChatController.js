@@ -32,22 +32,15 @@ const createChatRoom = async (req, res, next) => {
       throw new NotFoundError("The other participant does not exist.");
     }
 
+    const participantIds = {
+      userId: requesterIsUser ? requesterId : (user?.id ?? null),
+      adminId: requesterIsAdmin ? requesterId : (admin?.id ?? null),
+      barberId: requesterIsBarber ? requesterId : (barber?.id ?? null),
+    };
+
     // Check if the chat already exists
     const existingChat = await prisma.chatRoom.findFirst({
-      where: {
-        OR: [
-          {
-            userId: requesterIsUser ? requesterId : otherUserId,
-            adminId: requesterIsAdmin ? requesterId : admin?.id ?? null,
-            barberId: requesterIsBarber ? requesterId : barber?.id ?? null,
-          },
-          {
-            userId: requesterIsUser ? otherUserId : requesterId,
-            adminId: requesterIsAdmin ? otherUserId : admin?.id ?? null,
-            barberId: requesterIsBarber ? otherUserId : barber?.id ?? null,
-          }
-        ]
-      },
+      where: participantIds,
       include: {
         user: true,
         admin: true,
@@ -59,16 +52,17 @@ const createChatRoom = async (req, res, next) => {
     });
 
     if (existingChat) {
-      return handlerOk(res, 200, existingChat, 'Chat room already exists');
+      return handlerOk(
+        res,
+        200,
+        { chatRoomId: existingChat.id },
+        'Chat room already exists'
+      );
     }
 
     // Create a new chat room
     const newChatRoom = await prisma.chatRoom.create({
-      data: {
-        userId: requesterIsUser ? requesterId : user?.id ?? null,
-        adminId: requesterIsAdmin ? requesterId : admin?.id ?? null,
-        barberId: requesterIsBarber ? requesterId : barber?.id ?? null,
-      },
+      data: participantIds,
       include: {
         user: true,
         admin: true,
@@ -79,7 +73,12 @@ const createChatRoom = async (req, res, next) => {
       }
     });
 
-    return handlerOk(res, 200, newChatRoom, 'Chat room created successfully');
+    return handlerOk(
+      res,
+      200,
+      { chatRoomId: newChatRoom.id, chatRoom: newChatRoom },
+      'Chat room created successfully'
+    );
   } catch (error) {
     next(error);
   }
