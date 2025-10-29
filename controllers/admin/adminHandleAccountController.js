@@ -32,9 +32,7 @@ const transerAmountToBarberAccount = async (req, res, next) => {
   try {
 
     const { barberId, amount } = req.body; // Barber's Stripe Account ID
-    if (!barberId) {
-      throw new BadRequestError("barberId is required");
-    }
+
 
     const findbarber = await prisma.barber.findUnique({ where: { id: barberId } });
 

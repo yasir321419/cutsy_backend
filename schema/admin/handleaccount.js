@@ -4,7 +4,7 @@ const adminTransferToBarberSchema = Joi.object({
   query: Joi.object({}),
   params: Joi.object({}),
   body: Joi.object({
-    barberAccountId: Joi.string().required(),
+    barberId: Joi.string().required(),
     amount: Joi.string().required(),
   }),
 });
