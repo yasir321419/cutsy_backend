@@ -5,7 +5,17 @@ const { transferAmountInAccount, getAdminBalance } = require("../../utils/stripe
 
 const showAllPaymentRecieved = async (req, res, next) => {
   try {
-    const findallpayment = await prisma.payment.findMany({});
+    const findallpayment = await prisma.payment.findMany({
+      include: {
+        booking: true,
+        booking: {
+          include: {
+            user: true,
+            barber: true
+          }
+        }
+      }
+    });
 
     if (findallpayment.length === 0) {
       throw new NotFoundError("payment not found")
@@ -86,4 +96,3 @@ module.exports = {
   showAllPaymentRecieved,
   transerAmountToBarberAccount
 }
-
