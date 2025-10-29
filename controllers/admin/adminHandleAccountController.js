@@ -60,7 +60,7 @@ const transerAmountToBarberAccount = async (req, res, next) => {
 
     // Check if Admin has sufficient funds to transfer
     if (amountInCents > availableBalance) {
-      throw new BadRequestError('Insufficient balance to transfer');
+      throw new BadRequestError(`Insufficient balance to transfer your balance ${availableBalance}`);
     }
 
     // Proceed with transferring the funds from Admin to Barber
